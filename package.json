@@ -79,13 +79,6 @@
                     "when": "true"
                 }
             ],
-            "view/title": [
-                {
-                    "command": "vscode-favorites.openFavoriteFiles",
-                    "when": "view == favoritesList",
-                    "group": "navigation"
-                }
-            ],
             "view/item/context": [
                 {
                     "command": "vscode-favorites.removeFromFavorites",

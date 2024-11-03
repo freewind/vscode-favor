@@ -10,6 +10,7 @@ class FavoritesProvider {
         this.groups = new Map();
         this.context = context;
         this.view = null;
+        this.activeGroup = null;
         this.loadFavorites();
     }
 
@@ -27,6 +28,8 @@ class FavoritesProvider {
                 parentGroup: group.parentGroup || null
             });
         });
+
+        this.activeGroup = this.context.globalState.get('activeGroup', null);
     }
 
     saveFavorites() {
@@ -42,6 +45,7 @@ class FavoritesProvider {
         
         this.context.globalState.update('favorites', favoritesArray);
         this.context.globalState.update('favoriteGroups', groupsObject);
+        this.context.globalState.update('activeGroup', this.activeGroup);
     }
 
     getTreeItem(element) {
@@ -50,6 +54,7 @@ class FavoritesProvider {
             const fileCount = group.files.size;
             const subGroupCount = group.subGroups.size;
             
+            const isActive = element.name === this.activeGroup;
             const label = subGroupCount > 0 ? 
                 `${element.name} (${fileCount} files, ${subGroupCount} groups)` : 
                 `${element.name} (${fileCount} files)`;
@@ -58,10 +63,24 @@ class FavoritesProvider {
                 label,
                 vscode.TreeItemCollapsibleState.Expanded
             );
-            treeItem.contextValue = 'group';
-            treeItem.iconPath = new vscode.ThemeIcon('folder-opened');
+            treeItem.contextValue = isActive ? 'activeGroup' : 'group';
+            
+            // 使用不同的图标和颜色来区分激活分组
+            treeItem.iconPath = new vscode.ThemeIcon(
+                isActive ? 'folder-active' : 'folder-opened',  // 使用不同的文件夹图标
+                isActive ? new vscode.ThemeColor('notificationsWarningIcon.foreground') : undefined  // 使用警告色（通常是黄色）
+            );
             
             treeItem.buttons = [
+                {
+                    icon: new vscode.ThemeIcon(isActive ? 'circle-filled' : 'circle-outline'),
+                    tooltip: isActive ? 'Deactivate Group' : 'Set as Active Group',
+                    command: {
+                        command: isActive ? 'vscode-favorites.deactivateGroup' : 'vscode-favorites.setActiveGroup',
+                        arguments: [element],
+                        title: isActive ? 'Deactivate Group' : 'Set as Active Group'
+                    }
+                },
                 {
                     icon: new vscode.ThemeIcon('new-folder'),
                     tooltip: 'Create Sub-Group',
@@ -171,7 +190,14 @@ class FavoritesProvider {
             name: path.basename(uri.fsPath),
             type: stat.isDirectory() ? 'folder' : 'file'
         };
-        this.favorites.set(uri.fsPath, favorite);
+
+        if (this.activeGroup && this.groups.has(this.activeGroup)) {
+            favorite.groupName = this.activeGroup;
+            this.groups.get(this.activeGroup).files.set(uri.fsPath, favorite);
+        } else {
+            this.favorites.set(uri.fsPath, favorite);
+        }
+
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
     }
@@ -592,7 +618,7 @@ class FavoritesProvider {
                 });
 
                 if (targetGroupPath) {
-                    // 从路径中获取实际的分组名
+                    // 从路径获取实际的分组名
                     const targetGroup = targetGroupPath === '(Default Group)' ? 
                         targetGroupPath : 
                         targetGroupPath.split(' > ').pop();
@@ -722,6 +748,13 @@ class FavoritesProvider {
             this.saveFavorites();
             this._onDidChangeTreeData.fire();
         }
+    }
+
+    // 设置激活分组
+    setActiveGroup(groupName) {
+        this.activeGroup = groupName;
+        this.saveFavorites();
+        this._onDidChangeTreeData.fire();
     }
 }
 
@@ -952,6 +985,16 @@ function activate(context) {
         await favoritesProvider.removeAll();
     });
 
+    // 注册设置激活分组的命令
+    let setActiveGroup = vscode.commands.registerCommand('vscode-favorites.setActiveGroup', async (groupElement) => {
+        favoritesProvider.setActiveGroup(groupElement.name);
+    });
+
+    // 注册取消激活分组的命令
+    let deactivateGroup = vscode.commands.registerCommand('vscode-favorites.deactivateGroup', async () => {
+        favoritesProvider.setActiveGroup(null);
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -967,7 +1010,9 @@ function activate(context) {
         moveToGroup,
         copyToGroup,
         addNewSubGroup,
-        removeAll
+        removeAll,
+        setActiveGroup,
+        deactivateGroup
     );
 }
 

@@ -2,7 +2,7 @@
     "name": "vscode-favor",
     "displayName": "Favor Files",
     "description": "Add favorite files and groups to your workspace.",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "publisher": "freewind",
     "engines": {
         "vscode": "^1.80.0"

@@ -51,6 +51,18 @@ class FavoritesProvider {
                 treeItem.resourceUri = vscode.Uri.file(firstFile.path);
             }
             
+            treeItem.buttons = [
+                {
+                    icon: new vscode.ThemeIcon('check-all'),
+                    tooltip: 'Select All Files',
+                    command: {
+                        command: 'vscode-favorites.selectAllInGroup',
+                        arguments: [element],
+                        title: 'Select All Files in Group'
+                    }
+                }
+            ];
+            
             return treeItem;
         }
 
@@ -289,6 +301,84 @@ class FavoritesProvider {
         
         console.log('=== handleDrag End ===\n');
     }
+
+    // 实现 getParent 方法，于支持 reveal 功能
+    getParent(element) {
+        // 如果是分组内的文件，返回其属分组
+        if (element.groupName) {
+            return {
+                name: element.groupName,
+                isGroup: true
+            };
+        }
+        // 如果是根级别的项目（包括分组和未分组的文件），返回 null
+        return null;
+    }
+
+    // 修改 selectAllInGroup 命令的处理方式
+    async selectAllInGroup(groupElement) {
+        console.log('\n### > selectAllInGroup start with:', JSON.stringify(groupElement, null, 2));
+        if (groupElement && groupElement.isGroup) {
+            const groupItems = this.groups.get(groupElement.name);
+            console.log('\n### > Found group items:', JSON.stringify(Array.from(groupItems.values()), null, 2));
+            
+            if (groupItems && this.view) {
+                // 获取分组中的所有文件项
+                const fileItems = Array.from(groupItems.values())
+                    .filter(item => item.type === 'file')
+                    .map(item => ({
+                        ...item,
+                        groupName: groupElement.name,
+                        contextValue: 'file'
+                    }));
+                
+                console.log('\n### > Prepared fileItems:', JSON.stringify(fileItems, null, 2));
+
+                if (fileItems.length > 0) {
+                    try {
+                        // 先展开分组
+                        console.log('\n### > Expanding group');
+                        await this.view.reveal(fileItems[0], {
+                            select: false,
+                            focus: false,
+                            expand: true
+                        });
+
+                        // 等待一小段时间确保 UI 更新
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        // 选择分组内的第一个文件
+                        await this.view.reveal(fileItems[0], {
+                            select: true,
+                            focus: true
+                        });
+
+                        // 然后选择到最后一个文件
+                        await this.view.reveal(fileItems[fileItems.length - 1], {
+                            select: true,
+                            focus: true
+                        });
+
+                        // 使用 VS Code 的范围选择命令
+                        await vscode.commands.executeCommand('list.expandSelectionDown', {
+                            start: 0,
+                            end: fileItems.length - 1
+                        });
+
+                        console.log('\n### > Selection complete');
+                    } catch (error) {
+                        console.error('\n### > Error in selection:', error);
+                        console.error('\n### > Error details:', {
+                            name: error.name,
+                            message: error.message,
+                            stack: error.stack
+                        });
+                    }
+                }
+            }
+        }
+        console.log('\n### > selectAllInGroup end\n');
+    }
 }
 
 function activate(context) {
@@ -360,6 +450,11 @@ function activate(context) {
         }
     });
 
+    // 修改选择分组所有文件的命令
+    let selectAllInGroup = vscode.commands.registerCommand('vscode-favorites.selectAllInGroup', async (groupElement) => {
+        await favoritesProvider.selectAllInGroup(groupElement);
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -368,7 +463,8 @@ function activate(context) {
         openSelectedFiles,
         openFavoriteFile,
         addToGroup,
-        removeFromGroup
+        removeFromGroup,
+        selectAllInGroup
     );
 }
 

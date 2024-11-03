@@ -1,11 +1,11 @@
 # VS Code Favor Files
 
-一个帮助你管理常用文件的 VS Code 扩展。支持分组、嵌套分组、拖放操作等功能。
+一个帮助你管理常用文件的 VS Code 扩展。支持分组、嵌套分组、拖放操作等功能。数据保存在项目的 `.vscode/favor.json` 中，方便版本控制和团队共享。
 
 ## 功能特点
 
 ### 基本功能
-- 将文件添加到收藏夹
+- 将文件或目录添加到收藏夹（支持递归添加目录中的所有文件）
 - 支持文件分组管理
 - 支持嵌套分组（子分组）
 - 支持拖放操作
@@ -26,14 +26,18 @@
 ## 使用说明
 
 ### 添加文件到收藏夹
-1. 在文件资源管理器中右键点击文件
+1. 在文件资源管理器中右键点击文件或目录
 2. 选择 "Add to Favorites" 将文件添加到默认分组或激活分组
 3. 或选择 "Add to Favorite Group" 选择特定分组
+4. 如果选择的是目录，会递归添加其中的所有文件（忽略隐藏文件和目录）
 
 ### 分组操作
-1. 点击收藏夹视图右上角的 "+" 按钮创建新分组
+1. 点击收藏夹视图右上角的按钮：
+   - "+" 创建新分组
+   - "清除" 删除所有收藏
+   - "JSON" 打开数据文件
 2. 点击分组右侧的按钮进行：
-   - 设置/取消激活分组
+   - 设置/取消激活分组（心形图标）
    - 创建子分组
    - 重命名分组
    - 删除分组
@@ -63,8 +67,10 @@
    - 在确认对话框中会显示所有选中的文件
 
 4. 数据存储：
-   - 收藏夹数据保存在 VS Code 的全局存储中
-   - 重启 VS Code 后数据仍然保留
+   - 收藏夹数据保存在项目的 `.vscode/favor.json` 中
+   - 可以直接编辑 JSON 文件修改数据
+   - 支持版本控制，方便团队共享
+   - 每个项目有独立的收藏夹数据
 
 ## 快捷键
 
@@ -77,3 +83,68 @@
 ## License
 
 MIT
+
+## 开发指南
+
+### 环境准备
+1. 安装 Node.js (推荐 v16+)
+2. 安装 pnpm: `npm install -g pnpm`
+3. 克隆项目并安装依赖：
+   ```bash
+   git clone https://github.com/freewind/vscode-favor.git
+   cd vscode-favor
+   pnpm install
+   ```
+
+### 本地开发
+1. 在 VS Code 中打开项目
+2. 按 F5 启动调试
+3. 在新窗口中测试功能
+4. 修改代码后按 Ctrl+R (Cmd+R) 重新加载窗口
+
+### 打包扩展
+1. 本地打包：
+   ```bash
+   pnpm package
+   ```
+   这会生成 `vscode-favor-x.x.x.vsix` 文件
+
+2. 安装本地包：
+   - 方式一：在 VS Code 中
+     1. Ctrl+Shift+P
+     2. 输入 "Install from VSIX"
+     3. 选择生成的 .vsix 文件
+   - 方式二：命令行
+     ```bash
+     code --install-extension vscode-favor-x.x.x.vsix
+     ```
+
+### 数据文件
+- 位置：项目的 `.vscode/favor.json`
+- 格式：
+  ```json
+  {
+    "favorites": [
+      {
+        "path": "文件路径",
+        "name": "文件名",
+        "type": "file"
+      }
+    ],
+    "groups": {
+      "分组名": {
+        "files": [
+          {
+            "path": "文件路径",
+            "name": "文件名",
+            "type": "file",
+            "groupName": "分组名"
+          }
+        ],
+        "subGroups": [],
+        "parentGroup": null
+      }
+    },
+    "activeGroup": "当前激活的分组名"
+  }
+  ```

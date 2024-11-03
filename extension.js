@@ -523,7 +523,7 @@ class FavoritesProvider {
 
         if (groupName) {
             console.log('\n### > Creating new group:', groupName);
-            // 创建新的空分组，包含完整的数据结构
+            // 建新的空分组，包含完整的数据结构
             this.groups.set(groupName, {
                 files: new Map(),          // 存储文件
                 subGroups: new Map(),      // 存储子分组
@@ -607,7 +607,7 @@ class FavoritesProvider {
                             delete item.groupName;
                             this.favorites.set(item.path, item);
                         } else {
-                            // 移动到指定分组
+                            // 移动指定分组
                             if (item.groupName) {
                                 this.groups.get(item.groupName).files.delete(item.path);
                             } else {
@@ -641,7 +641,7 @@ class FavoritesProvider {
             console.log('\n### > Selected items for copy:', JSON.stringify(selectedItems, null, 2));
             
             if (selectedItems && selectedItems.length > 0) {
-                // 准备分组列表��包括默认分组和完整路径
+                // 准备分组列表包括默认分组和完整路径
                 const groups = this.getAllGroupsWithPath();
                 // 排除当前所在分组（如果所有项都在同一个分组）
                 const currentGroup = selectedItems[0].groupName;
@@ -685,6 +685,42 @@ class FavoritesProvider {
                     this._onDidChangeTreeData.fire();
                 }
             }
+        }
+    }
+
+    async removeAll() {
+        // 检查是否有任何收藏
+        if (this.favorites.size === 0 && this.groups.size === 0) {
+            vscode.window.showInformationMessage('No favorites to remove.');
+            return;
+        }
+
+        // 构建确认消息
+        let message = 'Are you sure you want to remove all favorites?\n\n';
+        
+        // 统计默认分组的文件
+        if (this.favorites.size > 0) {
+            message += `Default Group: ${this.favorites.size} file(s)\n`;
+        }
+
+        // 统计每个分组的文件
+        this.groups.forEach((group, groupName) => {
+            message += `${this.getGroupFullPath(groupName)}: ${group.files.size} file(s)\n`;
+        });
+
+        // 显示确认对话框
+        const answer = await vscode.window.showWarningMessage(
+            message,
+            { modal: true, detail: 'This action cannot be undone.' },
+            'Remove All'
+        );
+
+        if (answer === 'Remove All') {
+            // 清空所有收藏
+            this.favorites.clear();
+            this.groups.clear();
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
         }
     }
 }
@@ -911,6 +947,11 @@ function activate(context) {
         await favoritesProvider.addNewGroup(parentGroup);
     });
 
+    // 注册删除所有收藏的命令
+    let removeAll = vscode.commands.registerCommand('vscode-favorites.removeAll', async () => {
+        await favoritesProvider.removeAll();
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -925,7 +966,8 @@ function activate(context) {
         addNewGroup,
         moveToGroup,
         copyToGroup,
-        addNewSubGroup  // 确保这里有
+        addNewSubGroup,
+        removeAll
     );
 }
 

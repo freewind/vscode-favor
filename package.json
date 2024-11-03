@@ -73,6 +73,11 @@
                 "command": "vscode-favorites.addNewSubGroup",
                 "title": "Create Sub-Group",
                 "icon": "$(new-folder)"
+            },
+            {
+                "command": "vscode-favorites.removeAll",
+                "title": "Remove All Favorites",
+                "icon": "$(clear-all)"
             }
         ],
         "menus": {
@@ -157,7 +162,12 @@
                 {
                     "command": "vscode-favorites.addNewGroup",
                     "when": "view == favoritesList",
-                    "group": "navigation"
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "vscode-favorites.removeAll",
+                    "when": "view == favoritesList",
+                    "group": "navigation@2"
                 }
             ]
         },

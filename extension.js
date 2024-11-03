@@ -38,8 +38,11 @@ class FavoritesProvider {
 
     getTreeItem(element) {
         if (element.isGroup) {
+            const groupItems = this.groups.get(element.name);
+            const fileCount = groupItems ? Array.from(groupItems.values()).filter(item => item.type === 'file').length : 0;
+            
             const treeItem = new vscode.TreeItem(
-                element.name,
+                `${element.name} (${fileCount})`,
                 vscode.TreeItemCollapsibleState.Expanded
             );
             treeItem.contextValue = 'group';
@@ -66,7 +69,6 @@ class FavoritesProvider {
                 }
             ];
             
-            const groupItems = this.groups.get(element.name);
             if (groupItems && groupItems.size > 0) {
                 const firstFile = Array.from(groupItems.values())[0];
                 treeItem.resourceUri = vscode.Uri.file(firstFile.path);

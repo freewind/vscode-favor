@@ -119,7 +119,7 @@ class FavoritesProvider {
         // }
         this.groups = new Map();
 
-        // VS Code 的扩���上下文，用于存储全局状态
+        // VS Code 的扩上下文，用于存储全局状态
         this.context = context;
 
         // TreeView 实例的引用，用于获取选中项等信息
@@ -133,53 +133,99 @@ class FavoritesProvider {
     }
 
     /**
-     * 从 VS Code 的全局状态中加载收藏数据
-     * globalState 是持久化的，在 VS Code 重启后仍然存在
+     * 从项目的 .vscode/favor.json 中加载收藏数据
      */
     loadFavorites() {
-        // 加载默认分组的文件
-        const favorites = this.context.globalState.get('favorites', []);
-        favorites.forEach(item => {
-            this.favorites.set(item.path, item);
-        });
-        
-        // 加载分组数据，需要重建 Map 结构
-        const groups = this.context.globalState.get('favoriteGroups', {});
-        Object.entries(groups).forEach(([groupName, group]) => {
-            this.groups.set(groupName, {
-                files: new Map(group.files?.map(item => [item.path, item]) || []),
-                subGroups: new Map(group.subGroups || []),
-                parentGroup: group.parentGroup || null
-            });
-        });
+        try {
+            // 获取当前工作区的第一个根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                console.log('No workspace folder found');
+                return;
+            }
 
-        // 加载激活分组状态
-        this.activeGroup = this.context.globalState.get('activeGroup', null);
+            // 构建 .vscode/favor.json 的路径
+            const favorPath = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode', 'favor.json');
+            
+            // 读取文件内容
+            try {
+                const content = fs.readFileSync(favorPath.fsPath, 'utf8');
+                const data = JSON.parse(content);
+                
+                // 加载默认分组的文件
+                const favorites = data.favorites || [];
+                favorites.forEach(item => {
+                    this.favorites.set(item.path, item);
+                });
+                
+                // 加载分组数据
+                const groups = data.groups || {};
+                Object.entries(groups).forEach(([groupName, group]) => {
+                    this.groups.set(groupName, {
+                        files: new Map(group.files?.map(item => [item.path, item]) || []),
+                        subGroups: new Map(group.subGroups || []),
+                        parentGroup: group.parentGroup || null
+                    });
+                });
+
+                // 加载激活分组状态
+                this.activeGroup = data.activeGroup || null;
+
+            } catch (error) {
+                if (error.code !== 'ENOENT') {  // 忽略文件不存在的错误
+                    console.error('Error loading favorites:', error);
+                }
+            }
+        } catch (error) {
+            console.error('Error in loadFavorites:', error);
+        }
     }
 
     /**
-     * 保存数据到 VS Code 的全局状态
-     * 注意：由于 globalState 只能存储可序列化的数据，
-     * 需要将 Map 转换为普通对象/数组
+     * 保存数据到项目的 .vscode/favor.json
      */
     saveFavorites() {
-        // 保存默认分组的文件
-        const favoritesArray = Array.from(this.favorites.values());
+        try {
+            // 获取当前工作区的第一个根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                console.log('No workspace folder found');
+                return;
+            }
 
-        // 保存分组数据，将 Map 转换为普通对象
-        const groupsObject = {};
-        this.groups.forEach((group, groupName) => {
-            groupsObject[groupName] = {
-                files: Array.from(group.files.values()),
-                subGroups: Array.from(group.subGroups.entries()),
-                parentGroup: group.parentGroup
+            // 构建 .vscode 目录路径
+            const vscodePath = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode');
+            const favorPath = vscode.Uri.joinPath(vscodePath, 'favor.json');
+
+            // 确保 .vscode 目录存在
+            if (!fs.existsSync(vscodePath.fsPath)) {
+                fs.mkdirSync(vscodePath.fsPath, { recursive: true });
+            }
+
+            // 准备要保存的数据
+            const data = {
+                favorites: Array.from(this.favorites.values()),
+                groups: {},
+                activeGroup: this.activeGroup
             };
-        });
-        
-        // 使用 update 方法保存到全局状态
-        this.context.globalState.update('favorites', favoritesArray);
-        this.context.globalState.update('favoriteGroups', groupsObject);
-        this.context.globalState.update('activeGroup', this.activeGroup);
+
+            // 转换分组数据
+            this.groups.forEach((group, groupName) => {
+                data.groups[groupName] = {
+                    files: Array.from(group.files.values()),
+                    subGroups: Array.from(group.subGroups.entries()),
+                    parentGroup: group.parentGroup
+                };
+            });
+
+            // 保存到文件
+            fs.writeFileSync(favorPath.fsPath, JSON.stringify(data, null, 2), 'utf8');
+            console.log('Favorites saved to:', favorPath.fsPath);
+
+        } catch (error) {
+            console.error('Error saving favorites:', error);
+            vscode.window.showErrorMessage(`Failed to save favorites: ${error.message}`);
+        }
     }
 
     /**
@@ -217,7 +263,7 @@ class FavoritesProvider {
             
             // 添加分组的操作按钮
             treeItem.buttons = [
-                // 激活/取消激活��钮
+                // 激活/取消激活钮
                 {
                     icon: new vscode.ThemeIcon(isActive ? 'circle-filled' : 'circle-outline'),
                     tooltip: isActive ? 'Deactivate Group' : 'Set as Active Group',
@@ -820,7 +866,7 @@ class FavoritesProvider {
         return path;
     }
 
-    // 添��一个辅助方法来获取所有分组（包括完整路径）
+    // 添一个辅助方法来获取所有分组（包括完整路径）
     getAllGroupsWithPath() {
         const groups = ['(Default Group)'];
         this.groups.forEach((_, groupName) => {

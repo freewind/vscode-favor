@@ -641,32 +641,38 @@ function activate(context) {
     });
 
     let removeFromFavorites = vscode.commands.registerCommand('vscode-favorites.removeFromFavorites', async (item) => {
-        // 获取所有选中的项目
-        const selectedItems = item ? 
-            // 如果是从按钮点击，检查是否有多选
-            [item, ...favoritesProvider.getSelectedItems().filter(i => i !== item)] : 
-            // 如果是从右键菜单，直接获取所有选中项
-            favoritesProvider.getSelectedItems();
-
-        console.log('\n### > Selected items for removal:', JSON.stringify(selectedItems, null, 2));
-        
-        if (selectedItems && selectedItems.length > 0) {
-            // 如果选中了多个项目，显示确认对话框
-            const message = selectedItems.length === 1 
-                ? 'Are you sure you want to remove this item from favorites?'
-                : `Are you sure you want to remove these ${selectedItems.length} items from favorites?`;
-            
+        // 如果是从按钮点击，只删除该项
+        if (item) {
             const answer = await vscode.window.showWarningMessage(
-                message,
+                'Are you sure you want to remove this item from favorites?',
                 { modal: true },
                 'Remove'
             );
 
             if (answer === 'Remove') {
-                // 删除所有选中的项目
-                selectedItems.forEach(item => {
-                    favoritesProvider.removeFavorite(item);
-                });
+                favoritesProvider.removeFavorite(item);
+            }
+        } else {
+            // 如果是从右键菜单，获取所有选中的项目
+            const selectedItems = favoritesProvider.getSelectedItems();
+            console.log('\n### > Selected items for removal:', JSON.stringify(selectedItems, null, 2));
+            
+            if (selectedItems && selectedItems.length > 0) {
+                const message = selectedItems.length === 1 
+                    ? 'Are you sure you want to remove this item from favorites?'
+                    : `Are you sure you want to remove these ${selectedItems.length} items from favorites?`;
+                
+                const answer = await vscode.window.showWarningMessage(
+                    message,
+                    { modal: true },
+                    'Remove'
+                );
+
+                if (answer === 'Remove') {
+                    selectedItems.forEach(item => {
+                        favoritesProvider.removeFavorite(item);
+                    });
+                }
             }
         }
     });

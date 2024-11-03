@@ -42,6 +42,11 @@
                 "command": "vscode-favorites.removeFromGroup",
                 "title": "Remove from Group",
                 "icon": "$(x)"
+            },
+            {
+                "command": "vscode-favorites.renameGroup",
+                "title": "Rename Group",
+                "icon": "$(edit)"
             }
         ],
         "menus": {
@@ -79,7 +84,12 @@
             "view/item/context": [
                 {
                     "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList",
+                    "when": "view == favoritesList && !viewItem == group",
+                    "group": "inline"
+                },
+                {
+                    "command": "vscode-favorites.renameGroup",
+                    "when": "view == favoritesList && viewItem == group",
                     "group": "inline"
                 }
             ]

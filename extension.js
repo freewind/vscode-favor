@@ -45,6 +45,18 @@ class FavoritesProvider {
             treeItem.contextValue = 'group';
             treeItem.iconPath = new vscode.ThemeIcon('folder');
             
+            treeItem.buttons = [
+                {
+                    icon: new vscode.ThemeIcon('edit'),
+                    tooltip: 'Rename Group',
+                    command: {
+                        command: 'vscode-favorites.renameGroup',
+                        arguments: [element],
+                        title: 'Rename Group'
+                    }
+                }
+            ];
+            
             const groupItems = this.groups.get(element.name);
             if (groupItems && groupItems.size > 0) {
                 const firstFile = Array.from(groupItems.values())[0];
@@ -289,6 +301,42 @@ class FavoritesProvider {
         
         console.log('=== handleDrag End ===\n');
     }
+
+    async renameGroup(groupElement) {
+        console.log('\n### > renameGroup:', JSON.stringify(groupElement, null, 2));
+        if (groupElement && groupElement.isGroup) {
+            const newName = await vscode.window.showInputBox({
+                prompt: 'Enter new group name',
+                value: groupElement.name,
+                validateInput: value => {
+                    if (!value) return 'Group name cannot be empty';
+                    if (this.groups.has(value) && value !== groupElement.name) {
+                        return 'Group name already exists';
+                    }
+                    return null;
+                }
+            });
+
+            if (newName && newName !== groupElement.name) {
+                console.log('\n### > Renaming group from', groupElement.name, 'to', newName);
+                // 获取旧组的内容
+                const groupItems = this.groups.get(groupElement.name);
+                if (groupItems) {
+                    // 创建新组并复制内容
+                    this.groups.set(newName, groupItems);
+                    // 删除旧组
+                    this.groups.delete(groupElement.name);
+                    // 更新所有项的 groupName
+                    groupItems.forEach(item => {
+                        item.groupName = newName;
+                    });
+                    // 保存并刷新视图
+                    this.saveFavorites();
+                    this._onDidChangeTreeData.fire();
+                }
+            }
+        }
+    }
 }
 
 function activate(context) {
@@ -360,6 +408,10 @@ function activate(context) {
         }
     });
 
+    let renameGroup = vscode.commands.registerCommand('vscode-favorites.renameGroup', async (groupElement) => {
+        await favoritesProvider.renameGroup(groupElement);
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -368,7 +420,8 @@ function activate(context) {
         openSelectedFiles,
         openFavoriteFile,
         addToGroup,
-        removeFromGroup
+        removeFromGroup,
+        renameGroup
     );
 }
 

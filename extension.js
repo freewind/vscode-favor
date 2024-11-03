@@ -480,8 +480,8 @@ class FavoritesProvider {
         if (item.groupName) {
             console.log('Removing from group:', item.groupName);
             if (this.groups.has(item.groupName)) {
-                this.groups.get(item.groupName).delete(item.path);
-                if (this.groups.get(item.groupName).size === 0) {
+                this.groups.get(item.groupName).files.delete(item.path);
+                if (this.groups.get(item.groupName).files.size === 0) {
                     this.groups.delete(item.groupName);
                 }
             }

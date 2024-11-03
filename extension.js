@@ -44,6 +44,13 @@ class FavoritesProvider {
             );
             treeItem.contextValue = 'group';
             treeItem.iconPath = new vscode.ThemeIcon('folder');
+            
+            const groupItems = this.groups.get(element.name);
+            if (groupItems && groupItems.size > 0) {
+                const firstFile = Array.from(groupItems.values())[0];
+                treeItem.resourceUri = vscode.Uri.file(firstFile.path);
+            }
+            
             return treeItem;
         }
 
@@ -210,14 +217,77 @@ class FavoritesProvider {
     }
 
     async getDragUri(item) {
+        console.log('\n=== getDragUri Start ===');
+        console.log('Input item:', JSON.stringify(item, null, 2));
+        
+        if (item.isGroup) {
+            console.log('Processing group:', item.name);
+            const groupItems = this.groups.get(item.name);
+            console.log('Raw group items:', JSON.stringify(Array.from(groupItems.values()), null, 2));
+            
+            if (groupItems) {
+                const filteredItems = Array.from(groupItems.values()).filter(item => item.type === 'file');
+                console.log('Filtered file items:', JSON.stringify(filteredItems, null, 2));
+                
+                const uris = filteredItems.map(item => {
+                    const uri = vscode.Uri.file(item.path);
+                    console.log('Created URI:', uri.toString(), 'for path:', item.path);
+                    return uri;
+                });
+                
+                console.log('=== getDragUri End ===\n');
+                return uris;
+            }
+            console.log('No items found in group');
+            console.log('=== getDragUri End ===\n');
+            return [];
+        }
+        
+        console.log('Processing single item:', item.path);
+        console.log('=== getDragUri End ===\n');
         return vscode.Uri.file(item.path);
     }
 
     async handleDrag(items, dataTransfer, token) {
-        const uris = await Promise.all(
-            items.map(async item => this.getDragUri(item))
-        );
-        dataTransfer.items.add(uris, 'vscode-data-transfer');
+        console.log('\n=== handleDrag Start ===');
+        console.log('Input items:', JSON.stringify(items, null, 2));
+        
+        let uris = [];
+        for (const item of items) {
+            const itemUris = await this.getDragUri(item);
+            if (Array.isArray(itemUris)) {
+                console.log(`Adding ${itemUris.length} URIs from group`);
+                uris.push(...itemUris);
+            } else {
+                console.log('Adding single URI');
+                uris.push(itemUris);
+            }
+        }
+        
+        console.log('All URIs collected:', uris.map(uri => uri.toString()));
+        
+        try {
+            dataTransfer.set('vscode-file-uri-list', new vscode.DataTransferItem(uris));
+            console.log('Added URIs with vscode-file-uri-list format');
+            
+            if (items[0].isGroup) {
+                const groupItems = this.groups.get(items[0].name);
+                if (groupItems && groupItems.size > 0) {
+                    const firstFile = Array.from(groupItems.values())[0];
+                    items[0].resourceUri = vscode.Uri.file(firstFile.path);
+                    console.log('Set resourceUri for group:', items[0].resourceUri.toString());
+                }
+            }
+        } catch (error) {
+            console.error('Error in data transfer:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+        }
+        
+        console.log('=== handleDrag End ===\n');
     }
 }
 

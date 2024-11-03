@@ -43,7 +43,7 @@ class FavoritesProvider {
                 vscode.TreeItemCollapsibleState.Expanded
             );
             treeItem.contextValue = 'group';
-            treeItem.iconPath = new vscode.ThemeIcon('folder');
+            treeItem.iconPath = new vscode.ThemeIcon('folder-opened');
             
             treeItem.buttons = [
                 {
@@ -371,7 +371,7 @@ class FavoritesProvider {
                     console.log('\n### > Moving files to default group');
                     const files = Array.from(groupItems.values());
                     files.forEach(file => {
-                        // 移除 groupName 属���
+                        // 移除 groupName 属性
                         delete file.groupName;
                         this.favorites.set(file.path, file);
                     });

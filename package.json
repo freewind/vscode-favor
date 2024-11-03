@@ -32,6 +32,14 @@
             {
                 "command": "vscode-favorites.openFavoriteFiles",
                 "title": "Open Selected Files"
+            },
+            {
+                "command": "vscode-favorites.addToGroup",
+                "title": "Add to Favorite Group"
+            },
+            {
+                "command": "vscode-favorites.removeFromGroup",
+                "title": "Remove from Group"
             }
         ],
         "menus": {
@@ -40,6 +48,11 @@
                     "command": "vscode-favorites.addToFavorites",
                     "group": "9_favorites@1",
                     "when": "true"
+                },
+                {
+                    "command": "vscode-favorites.addToGroup",
+                    "group": "9_favorites@2",
+                    "when": "true"
                 }
             ],
             "editor/context": [
@@ -47,12 +60,22 @@
                     "command": "vscode-favorites.addToFavorites",
                     "group": "9_favorites@1",
                     "when": "true"
+                },
+                {
+                    "command": "vscode-favorites.addToGroup",
+                    "group": "9_favorites@2",
+                    "when": "true"
                 }
             ],
             "view/item/context": [
                 {
                     "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList",
+                    "when": "view == favoritesList && viewItem != group",
+                    "group": "inline"
+                },
+                {
+                    "command": "vscode-favorites.removeFromGroup",
+                    "when": "view == favoritesList && viewItem != group",
                     "group": "inline"
                 }
             ],

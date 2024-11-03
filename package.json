@@ -5,7 +5,7 @@
     "version": "0.0.1",
     "publisher": "freewind",
     "engines": {
-        "vscode": "^1.95.0"
+        "vscode": "^1.80.0"
     },
     "categories": [
         "Other"
@@ -209,7 +209,7 @@
     },
     "packageManager": "pnpm@8.6.12+sha512.1336b80b948efd7979218a33ba96d9e4d380e6578144f6319979977deec6e3fe2e0a444b864b3ce2b077dda8adc4d654fee32b9c31868f0acb92da0abcf8ea1c",
     "devDependencies": {
-        "@types/vscode": "^1.95.0"
+        "@types/vscode": "^1.80.0"
     },
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",

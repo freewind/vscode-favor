@@ -52,6 +52,11 @@
                 "command": "vscode-favorites.deleteGroup",
                 "title": "Delete Group",
                 "icon": "$(trash)"
+            },
+            {
+                "command": "vscode-favorites.addNewGroup",
+                "title": "Add New Group",
+                "icon": "$(add)"
             }
         ],
         "menus": {
@@ -94,6 +99,13 @@
                     "command": "vscode-favorites.renameGroup",
                     "when": "view == favoritesList && viewItem == group",
                     "group": "inline@1"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "vscode-favorites.addNewGroup",
+                    "when": "view == favoritesList",
+                    "group": "navigation"
                 }
             ]
         },

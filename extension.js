@@ -371,7 +371,7 @@ class FavoritesProvider {
                     console.log('\n### > Moving files to default group');
                     const files = Array.from(groupItems.values());
                     files.forEach(file => {
-                        // 移除 groupName 属性
+                        // 移除 groupName 属���
                         delete file.groupName;
                         this.favorites.set(file.path, file);
                     });
@@ -383,6 +383,29 @@ class FavoritesProvider {
                 // 如果用户点击取消按钮，什么也不做
             }
         }
+    }
+
+    async addNewGroup() {
+        console.log('\n### > addNewGroup start');
+        const groupName = await vscode.window.showInputBox({
+            prompt: 'Enter new group name',
+            validateInput: value => {
+                if (!value) return 'Group name cannot be empty';
+                if (this.groups.has(value)) {
+                    return 'Group name already exists';
+                }
+                return null;
+            }
+        });
+
+        if (groupName) {
+            console.log('\n### > Creating new group:', groupName);
+            // 创建新的空分组
+            this.groups.set(groupName, new Map());
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+        }
+        console.log('\n### > addNewGroup end');
     }
 }
 
@@ -463,6 +486,11 @@ function activate(context) {
         await favoritesProvider.deleteGroup(groupElement);
     });
 
+    // 注册添加新分组的命令
+    let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
+        await favoritesProvider.addNewGroup();
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -473,7 +501,8 @@ function activate(context) {
         addToGroup,
         removeFromGroup,
         renameGroup,
-        deleteGroup
+        deleteGroup,
+        addNewGroup
     );
 }
 

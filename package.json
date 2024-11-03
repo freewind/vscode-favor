@@ -89,7 +89,8 @@
                 {
                     "id": "favoritesList",
                     "name": "Favorites",
-                    "canSelectMany": true
+                    "canSelectMany": true,
+                    "dragAndDropController": true
                 }
             ]
         }

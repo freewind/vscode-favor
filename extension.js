@@ -58,6 +58,7 @@ class FavoritesProvider {
                 arguments: [element],
                 title: 'Open File'
             };
+            treeItem.resourceUri = vscode.Uri.file(element.path);
         }
         
         treeItem.iconPath = element.type === 'folder' ? new vscode.ThemeIcon('folder') : new vscode.ThemeIcon('file');
@@ -207,6 +208,17 @@ class FavoritesProvider {
     getSelectedItems() {
         return this.view ? this.view.selection : [];
     }
+
+    async getDragUri(item) {
+        return vscode.Uri.file(item.path);
+    }
+
+    async handleDrag(items, dataTransfer, token) {
+        const uris = await Promise.all(
+            items.map(async item => this.getDragUri(item))
+        );
+        dataTransfer.items.add(uris, 'vscode-data-transfer');
+    }
 }
 
 function activate(context) {
@@ -214,7 +226,10 @@ function activate(context) {
     
     const treeView = vscode.window.createTreeView('favoritesList', {
         treeDataProvider: favoritesProvider,
-        canSelectMany: true
+        canSelectMany: true,
+        dragAndDropController: {
+            handleDrag: (items, dataTransfer, token) => favoritesProvider.handleDrag(items, dataTransfer, token)
+        }
     });
     
     favoritesProvider.setTreeView(treeView);

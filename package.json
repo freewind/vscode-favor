@@ -1,8 +1,9 @@
 {
-    "name": "vscode-favorites",
-    "displayName": "File Favorites",
-    "description": "Add files and folders to favorites",
+    "name": "vscode-favor",
+    "displayName": "Favor Files",
+    "description": "Add favorite files and groups to your workspace.",
     "version": "0.0.1",
+    "publisher": "freewind",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -216,6 +217,5 @@
         "package": "webpack --mode production --devtool hidden-source-map",
         "compile": "webpack",
         "pretest": "webpack"
-    },
-    "publisher": "your-publisher-name"
+    }
 }

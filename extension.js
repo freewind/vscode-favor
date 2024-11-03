@@ -130,6 +130,11 @@ class FavoritesProvider {
 
         // 从全局状态加载保存的数据
         this.loadFavorites();
+
+        // 用于存储操作历史
+        this.history = [];
+        // 最大历史记录数
+        this.maxHistorySize = 50;
     }
 
     /**
@@ -255,7 +260,7 @@ class FavoritesProvider {
             // contextValue 用于在 package.json 中的 when 子句中判断节点类型
             treeItem.contextValue = isActive ? 'activeGroup' : 'group';
             
-            // 使用不同的图标和颜色来区分激活分组
+            // 使用不同的图标颜色来区分激活分组
             treeItem.iconPath = new vscode.ThemeIcon(
                 isActive ? 'folder-active' : 'folder-opened',  // 使用不同的文件夹图标
                 isActive ? new vscode.ThemeColor('notificationsWarningIcon.foreground') : undefined  // 使用警告色
@@ -357,7 +362,7 @@ class FavoritesProvider {
     getChildren(element) {
         if (!element) {
             // 根级别：显示默认收藏和顶级分组
-            // 注意：顶级分组是指没有 parentGroup 的分组
+            // 注意：顶级分组是指没 parentGroup 的分组
             const defaultItems = Array.from(this.favorites.values());
             const topGroups = Array.from(this.groups.entries())
                 .filter(([_, group]) => !group.parentGroup)  // 只选择顶级分组
@@ -391,11 +396,14 @@ class FavoritesProvider {
             return [...files, ...subGroups];
         }
         
-        // 如果是文件节点，没有子项
+        // 如果是文件节，没有子项
         return [];
     }
 
     async addFavorite(uri) {
+        // 保存当前状态到历史记录
+        this.saveToHistory('add', { path: uri.fsPath });
+
         const stat = fs.statSync(uri.fsPath);
         
         if (stat.isDirectory()) {
@@ -476,6 +484,7 @@ class FavoritesProvider {
     }
 
     removeFavorite(item) {
+        this.saveToHistory('remove', item);
         console.log('\n### > Removing favorite:', JSON.stringify(item, null, 2));
         if (item.groupName) {
             console.log('Removing from group:', item.groupName);
@@ -621,7 +630,7 @@ class FavoritesProvider {
                 isCopy: false  // 默认为移动操作
             };
 
-            // 检查是否按下了修饰键（Cmd/Ctrl）
+            // 检查是否按下了修饰键（Cmd/Ctrl
             // 在 macOS 上使用 Cmd，在其他平台使用 Ctrl
             if (process.platform === 'darwin') {
                 dragData.isCopy = token.isCancellationRequested;
@@ -684,7 +693,7 @@ class FavoritesProvider {
                         // 创新项
                         const newItem = { ...source, groupName: target.name };
                         
-                        // 如果不是复制操作，从原位置移除
+                        // 如果不是复制操作，从原置移除
                         if (!isCopy) {
                             if (source.groupName) {
                                 console.log('Removing from source group:', source.groupName);
@@ -779,39 +788,16 @@ class FavoritesProvider {
     }
 
     async deleteGroup(groupElement) {
+        this.saveToHistory('deleteGroup', groupElement);
         console.log('\n### > deleteGroup:', JSON.stringify(groupElement, null, 2));
         if (groupElement && groupElement.isGroup) {
             const groupItems = this.groups.get(groupElement.name);
             if (groupItems) {
-                // 先确认是否要删除
-                const answer = await vscode.window.showWarningMessage(
-                    `Do you want to delete group "${groupElement.name}"?`,
-                    { modal: true },
-                    'Delete Group and Files',
-                    'Move Files to Default'
-                );
-
-                if (answer === 'Delete Group and Files') {
-                    // 删除分组及其所有文件
-                    console.log('\n### > Deleting group and files:', groupElement.name);
-                    this.groups.delete(groupElement.name);
-                    this.saveFavorites();
-                    this._onDidChangeTreeData.fire();
-                } else if (answer === 'Move Files to Default') {
-                    // 将文件移动到默认分组
-                    console.log('\n### > Moving files to default group');
-                    const files = Array.from(groupItems.values());
-                    files.forEach(file => {
-                        // 移除 groupName 属性
-                        delete file.groupName;
-                        this.favorites.set(file.path, file);
-                    });
-                    // 删除原分组
-                    this.groups.delete(groupElement.name);
-                    this.saveFavorites();
-                    this._onDidChangeTreeData.fire();
-                }
-                // 如果用户点击取消按钮，什么也不做
+                // 直接删除分组及其所有文件
+                console.log('\n### > Deleting group and files:', groupElement.name);
+                this.groups.delete(groupElement.name);
+                this.saveFavorites();
+                this._onDidChangeTreeData.fire();
             }
         }
     }
@@ -831,7 +817,7 @@ class FavoritesProvider {
 
         if (groupName) {
             console.log('\n### > Creating new group:', groupName);
-            // 建新的空分组，包含完整的数据结构
+            // 建的空分组，包含完整的数据结构
             this.groups.set(groupName, {
                 files: new Map(),          // 存储文件
                 subGroups: new Map(),      // 存储子分组
@@ -852,7 +838,7 @@ class FavoritesProvider {
         console.log('\n### > addNewGroup end');
     }
 
-    // 添加一个辅助方法来获取分组的完整路径
+    // 添加一个辅助方法来获取组的完整路径
     getGroupFullPath(groupName) {
         const group = this.groups.get(groupName);
         if (!group) return groupName;
@@ -876,6 +862,7 @@ class FavoritesProvider {
     }
 
     async moveToGroup(item, targetGroup) {
+        this.saveToHistory('moveToGroup', { ...item, targetGroup });
         if (!targetGroup) {
             // 获取所有选中的项目
             const selectedItems = item ? 
@@ -940,6 +927,7 @@ class FavoritesProvider {
     }
 
     async copyToGroup(item, targetGroup) {
+        this.saveToHistory('copyToGroup', { ...item, targetGroup });
         if (!targetGroup) {
             // 获取所有选中的项目
             const selectedItems = item ? 
@@ -997,39 +985,18 @@ class FavoritesProvider {
     }
 
     async removeAll() {
+        this.saveToHistory('removeAll', {});
         // 检查是否有任何收藏
         if (this.favorites.size === 0 && this.groups.size === 0) {
             vscode.window.showInformationMessage('No favorites to remove.');
             return;
         }
 
-        // 构建确认消息
-        let message = 'Are you sure you want to remove all favorites?\n\n';
-        
-        // 统计默认分组的文件
-        if (this.favorites.size > 0) {
-            message += `Default Group: ${this.favorites.size} file(s)\n`;
-        }
-
-        // 统计每个分组的文件
-        this.groups.forEach((group, groupName) => {
-            message += `${this.getGroupFullPath(groupName)}: ${group.files.size} file(s)\n`;
-        });
-
-        // 显示确认对话框
-        const answer = await vscode.window.showWarningMessage(
-            message,
-            { modal: true, detail: 'This action cannot be undone.' },
-            'Remove All'
-        );
-
-        if (answer === 'Remove All') {
-            // 清空所有收藏
-            this.favorites.clear();
-            this.groups.clear();
-            this.saveFavorites();
-            this._onDidChangeTreeData.fire();
-        }
+        // 直接清空所有收藏
+        this.favorites.clear();
+        this.groups.clear();
+        this.saveFavorites();
+        this._onDidChangeTreeData.fire();
     }
 
     // 设置激活分组
@@ -1038,6 +1005,49 @@ class FavoritesProvider {
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
     }
+
+    /**
+     * 保存操作到历史记录
+     * @param {string} type - 操作类型
+     * @param {Object} data - 操作相关的数据
+     */
+    saveToHistory(type, data) {
+        const snapshot = {
+            type,
+            data,
+            favorites: new Map(this.favorites),
+            groups: new Map(this.groups),
+            activeGroup: this.activeGroup,
+            timestamp: new Date().toISOString()
+        };
+        
+        this.history.push(snapshot);
+        if (this.history.length > this.maxHistorySize) {
+            this.history.shift();
+        }
+    }
+
+    /**
+     * 撤销上一次操作
+     */
+    async undo() {
+        if (this.history.length === 0) {
+            vscode.window.showInformationMessage('No operations to undo');
+            return;
+        }
+
+        const lastOperation = this.history[this.history.length - 1];
+        
+        // 直接执行撤销，不再显示确认对话框
+        this.favorites = new Map(lastOperation.favorites);
+        this.groups = new Map(lastOperation.groups);
+        this.activeGroup = lastOperation.activeGroup;
+        
+        this.history.pop();
+        this.saveFavorites();
+        this._onDidChangeTreeData.fire();
+    }
+
 }
 
 /**
@@ -1056,7 +1066,7 @@ function activate(context) {
      * dragAndDropController: 处理拖放操作的控制器
      *   - dropMimeTypes: 可以接受的数据类型
      *   - dragMimeTypes: 可以提供的数据类型
-     *   - handleDrag/handleDrop: 处理拖放的回调函数
+     *   - handleDrag/handleDrop: 处拖放的回调函数
      */
     const treeView = vscode.window.createTreeView('favoritesList', {
         treeDataProvider: favoritesProvider,
@@ -1109,48 +1119,10 @@ function activate(context) {
         console.log('\n### > Selected items for removal:', JSON.stringify(selectedItems, null, 2));
         
         if (selectedItems && selectedItems.length > 0) {
-            let message;
-            if (selectedItems.length === 1) {
-                const item = selectedItems[0];
-                const itemDesc = item.groupName ? 
-                    `"${item.name}" from group "${favoritesProvider.getGroupFullPath(item.groupName)}"` : 
-                    `"${item.name}"`;
-                message = `Are you sure you want to remove ${itemDesc} from favorites?`;
-            } else {
-                // 按组分类文件
-                const groupedFiles = new Map();
-                selectedItems.forEach(item => {
-                    const groupName = item.groupName ? 
-                        favoritesProvider.getGroupFullPath(item.groupName) : 
-                        '(Default Group)';
-                    if (!groupedFiles.has(groupName)) {
-                        groupedFiles.set(groupName, []);
-                    }
-                    groupedFiles.get(groupName).push(item.name);
-                });
-
-                // 构建消息
-                message = `Are you sure you want to remove these ${selectedItems.length} files from favorites?\n\n`;
-                for (const [groupName, files] of groupedFiles) {
-                    message += `${groupName}:\n`;
-                    files.forEach(fileName => {
-                        message += `  • ${fileName}\n`;
-                    });
-                    message += '\n';
-                }
-            }
-            
-            const answer = await vscode.window.showWarningMessage(
-                message,
-                { modal: true, detail: selectedItems.length > 1 ? 'This action cannot be undone.' : undefined },
-                'Remove'
-            );
-
-            if (answer === 'Remove') {
-                selectedItems.forEach(item => {
-                    favoritesProvider.removeFavorite(item);
-                });
-            }
+            // 直接删除所有选中的项目，不再显示确认对话框
+            selectedItems.forEach(item => {
+                favoritesProvider.removeFavorite(item);
+            });
         }
     });
 
@@ -1298,7 +1270,7 @@ function activate(context) {
         await favoritesProvider.addNewGroup(parentGroup);
     });
 
-    // 注册删除所有收藏的命令
+    // 注册删除所有收藏命令
     let removeAll = vscode.commands.registerCommand('vscode-favorites.removeAll', async () => {
         await favoritesProvider.removeAll();
     });
@@ -1345,6 +1317,10 @@ function activate(context) {
         }
     });
 
+    let undo = vscode.commands.registerCommand('vscode-favorites.undo', async () => {
+        await favoritesProvider.undo();
+    });
+
     /**
      * 将所有注册的命令和视图添加到订阅列表
      * 这样在扩展停用时，VS Code 会自动清理这些资源
@@ -1367,7 +1343,8 @@ function activate(context) {
         removeAll,
         setActiveGroup,
         deactivateGroup,
-        openDataFile
+        openDataFile,
+        undo
     );
 }
 

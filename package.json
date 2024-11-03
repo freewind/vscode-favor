@@ -94,6 +94,11 @@
                 "command": "vscode-favorites.openDataFile",
                 "title": "Open Data File",
                 "icon": "$(json)"
+            },
+            {
+                "command": "vscode-favorites.undo",
+                "title": "Undo Last Operation",
+                "icon": "$(discard)"
             }
         ],
         "menus": {
@@ -191,14 +196,19 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "vscode-favorites.removeAll",
+                    "command": "vscode-favorites.undo",
                     "when": "view == favoritesList",
                     "group": "navigation@2"
                 },
                 {
-                    "command": "vscode-favorites.openDataFile",
+                    "command": "vscode-favorites.removeAll",
                     "when": "view == favoritesList",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "vscode-favorites.openDataFile",
+                    "when": "view == favoritesList",
+                    "group": "navigation@4"
                 }
             ]
         },

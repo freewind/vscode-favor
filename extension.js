@@ -75,18 +75,6 @@ class FavoritesProvider {
                     }
                 }
             ];
-
-            if (element.groupName) {
-                treeItem.buttons.push({
-                    icon: new vscode.ThemeIcon('remove'),
-                    tooltip: 'Remove from Group',
-                    command: {
-                        command: 'vscode-favorites.removeFromGroup',
-                        arguments: [element, element.groupName],
-                        title: 'Remove from Group'
-                    }
-                });
-            }
         }
 
         return treeItem;

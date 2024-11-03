@@ -81,11 +81,6 @@
                     "command": "vscode-favorites.removeFromFavorites",
                     "when": "view == favoritesList",
                     "group": "inline@1"
-                },
-                {
-                    "command": "vscode-favorites.removeFromGroup",
-                    "when": "view == favoritesList",
-                    "group": "inline@2"
                 }
             ]
         },

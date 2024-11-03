@@ -80,7 +80,7 @@
                 {
                     "command": "vscode-favorites.removeFromFavorites",
                     "when": "view == favoritesList",
-                    "group": "inline@1"
+                    "group": "inline"
                 }
             ]
         },

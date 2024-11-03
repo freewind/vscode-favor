@@ -92,7 +92,11 @@ class FavoritesProvider {
         
         if (element.isGroup) {
             const groupItems = this.groups.get(element.name);
-            return groupItems ? Array.from(groupItems.values()) : [];
+            return groupItems ? Array.from(groupItems.values()).map(item => ({
+                ...item,
+                groupName: element.name,
+                contextValue: 'file'
+            })) : [];
         }
         
         return [];
@@ -111,7 +115,17 @@ class FavoritesProvider {
     }
 
     removeFavorite(item) {
-        this.favorites.delete(item.path);
+        if (item.groupName) {
+            if (this.groups.has(item.groupName)) {
+                this.groups.get(item.groupName).delete(item.path);
+                if (this.groups.get(item.groupName).size === 0) {
+                    this.groups.delete(item.groupName);
+                }
+            }
+        } else {
+            this.favorites.delete(item.path);
+        }
+        
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
     }
@@ -122,11 +136,9 @@ class FavoritesProvider {
 
     async addToGroup(uri, groupName) {
         if (!groupName) {
-            // 获取现有分组
             const groups = this.getGroups();
             const items = [];
             
-            // 添加现有分组到选项中
             groups.forEach(group => {
                 items.push({
                     label: group,
@@ -134,7 +146,6 @@ class FavoritesProvider {
                 });
             });
 
-            // 添加分隔符和"New Group"选项
             if (groups.length > 0) {
                 items.push({ kind: vscode.QuickPickItemKind.Separator });
             }
@@ -143,7 +154,6 @@ class FavoritesProvider {
                 group: false
             });
 
-            // 显示快速选择菜单
             const selected = await vscode.window.showQuickPick(items, {
                 placeHolder: 'Select or create a group'
             });
@@ -151,7 +161,6 @@ class FavoritesProvider {
             if (!selected) return;
 
             if (!selected.group) {
-                // 如果选择了"New Group"，提示输入新组名
                 const newGroupName = await vscode.window.showInputBox({
                     placeHolder: "Enter group name",
                     prompt: "Enter a name for the new favorite group"
@@ -163,7 +172,6 @@ class FavoritesProvider {
             }
         }
 
-        // 创建新组或添加到现有组
         if (!this.groups.has(groupName)) {
             this.groups.set(groupName, new Map());
         }
@@ -172,7 +180,8 @@ class FavoritesProvider {
         const favorite = {
             path: uri.fsPath,
             name: path.basename(uri.fsPath),
-            type: stat.isDirectory() ? 'folder' : 'file'
+            type: stat.isDirectory() ? 'folder' : 'file',
+            groupName: groupName
         };
 
         this.groups.get(groupName).set(uri.fsPath, favorite);

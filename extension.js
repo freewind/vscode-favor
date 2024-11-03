@@ -54,6 +54,15 @@ class FavoritesProvider {
                         arguments: [element],
                         title: 'Rename Group'
                     }
+                },
+                {
+                    icon: new vscode.ThemeIcon('trash'),
+                    tooltip: 'Delete Group',
+                    command: {
+                        command: 'vscode-favorites.deleteGroup',
+                        arguments: [element],
+                        title: 'Delete Group'
+                    }
                 }
             ];
             
@@ -337,6 +346,44 @@ class FavoritesProvider {
             }
         }
     }
+
+    async deleteGroup(groupElement) {
+        console.log('\n### > deleteGroup:', JSON.stringify(groupElement, null, 2));
+        if (groupElement && groupElement.isGroup) {
+            const groupItems = this.groups.get(groupElement.name);
+            if (groupItems) {
+                // 先确认是否要删除
+                const answer = await vscode.window.showWarningMessage(
+                    `Do you want to delete group "${groupElement.name}"?`,
+                    { modal: true },
+                    'Delete Group and Files',
+                    'Move Files to Default'
+                );
+
+                if (answer === 'Delete Group and Files') {
+                    // 删除分组及其所有文件
+                    console.log('\n### > Deleting group and files:', groupElement.name);
+                    this.groups.delete(groupElement.name);
+                    this.saveFavorites();
+                    this._onDidChangeTreeData.fire();
+                } else if (answer === 'Move Files to Default') {
+                    // 将文件移动到默认分组
+                    console.log('\n### > Moving files to default group');
+                    const files = Array.from(groupItems.values());
+                    files.forEach(file => {
+                        // 移除 groupName 属性
+                        delete file.groupName;
+                        this.favorites.set(file.path, file);
+                    });
+                    // 删除原分组
+                    this.groups.delete(groupElement.name);
+                    this.saveFavorites();
+                    this._onDidChangeTreeData.fire();
+                }
+                // 如果用户点击取消按钮，什么也不做
+            }
+        }
+    }
 }
 
 function activate(context) {
@@ -412,6 +459,10 @@ function activate(context) {
         await favoritesProvider.renameGroup(groupElement);
     });
 
+    let deleteGroup = vscode.commands.registerCommand('vscode-favorites.deleteGroup', async (groupElement) => {
+        await favoritesProvider.deleteGroup(groupElement);
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -421,7 +472,8 @@ function activate(context) {
         openFavoriteFile,
         addToGroup,
         removeFromGroup,
-        renameGroup
+        renameGroup,
+        deleteGroup
     );
 }
 

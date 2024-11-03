@@ -20,16 +20,24 @@ class FavoritesProvider {
         });
         
         const groups = this.context.globalState.get('favoriteGroups', {});
-        Object.entries(groups).forEach(([groupName, items]) => {
-            this.groups.set(groupName, new Map(items.map(item => [item.path, item])));
+        Object.entries(groups).forEach(([groupName, group]) => {
+            this.groups.set(groupName, {
+                files: new Map(group.files?.map(item => [item.path, item]) || []),
+                subGroups: new Map(group.subGroups || []),
+                parentGroup: group.parentGroup || null
+            });
         });
     }
 
     saveFavorites() {
         const favoritesArray = Array.from(this.favorites.values());
         const groupsObject = {};
-        this.groups.forEach((items, groupName) => {
-            groupsObject[groupName] = Array.from(items.values());
+        this.groups.forEach((group, groupName) => {
+            groupsObject[groupName] = {
+                files: Array.from(group.files.values()),
+                subGroups: Array.from(group.subGroups.entries()),
+                parentGroup: group.parentGroup
+            };
         });
         
         this.context.globalState.update('favorites', favoritesArray);
@@ -38,17 +46,27 @@ class FavoritesProvider {
 
     getTreeItem(element) {
         if (element.isGroup) {
-            const groupItems = this.groups.get(element.name);
-            const fileCount = groupItems ? Array.from(groupItems.values()).filter(item => item.type === 'file').length : 0;
+            const group = this.groups.get(element.name);
+            const fileCount = group.files.size;
+            const subGroupCount = group.subGroups.size;
             
             const treeItem = new vscode.TreeItem(
-                `${element.name} (${fileCount})`,
+                `${element.name} (${fileCount} files, ${subGroupCount} groups)`,
                 vscode.TreeItemCollapsibleState.Expanded
             );
             treeItem.contextValue = 'group';
             treeItem.iconPath = new vscode.ThemeIcon('folder-opened');
             
             treeItem.buttons = [
+                {
+                    icon: new vscode.ThemeIcon('add'),
+                    tooltip: 'Add New Group',
+                    command: {
+                        command: 'vscode-favorites.addNewGroup',
+                        arguments: [element],  // 传入父组
+                        title: 'Add New Group'
+                    }
+                },
                 {
                     icon: new vscode.ThemeIcon('edit'),
                     tooltip: 'Rename Group',
@@ -68,11 +86,6 @@ class FavoritesProvider {
                     }
                 }
             ];
-            
-            if (groupItems && groupItems.size > 0) {
-                const firstFile = Array.from(groupItems.values())[0];
-                treeItem.resourceUri = vscode.Uri.file(firstFile.path);
-            }
             
             return treeItem;
         }
@@ -113,21 +126,35 @@ class FavoritesProvider {
 
     getChildren(element) {
         if (!element) {
+            // 根级别：显示默认收藏和顶级分组
             const defaultItems = Array.from(this.favorites.values());
-            const groups = Array.from(this.groups.keys()).map(name => ({
-                name,
-                isGroup: true
-            }));
-            return [...defaultItems, ...groups];
+            const topGroups = Array.from(this.groups.entries())
+                .filter(([_, group]) => !group.parentGroup)
+                .map(([name]) => ({
+                    name,
+                    isGroup: true
+                }));
+            return [...defaultItems, ...topGroups];
         }
         
         if (element.isGroup) {
-            const groupItems = this.groups.get(element.name);
-            return groupItems ? Array.from(groupItems.values()).map(item => ({
+            const group = this.groups.get(element.name);
+            if (!group) return [];
+
+            // 显示分组的文件和子分组
+            const files = Array.from(group.files.values()).map(item => ({
                 ...item,
                 groupName: element.name,
                 contextValue: 'file'
-            })) : [];
+            }));
+            
+            const subGroups = Array.from(group.subGroups.keys()).map(name => ({
+                name,
+                isGroup: true,
+                parentGroup: element.name
+            }));
+
+            return [...files, ...subGroups];
         }
         
         return [];
@@ -366,7 +393,7 @@ class FavoritesProvider {
                     }
                 }
             }
-            // 如���目标是默认分组区域
+            // 如目标是默认分组区域
             else if (!target) {
                 console.log('Dropping into default group');
                 for (const source of items) {
@@ -477,8 +504,8 @@ class FavoritesProvider {
         }
     }
 
-    async addNewGroup() {
-        console.log('\n### > addNewGroup start');
+    async addNewGroup(parentGroup) {
+        console.log('\n### > addNewGroup start with parent:', JSON.stringify(parentGroup, null, 2));
         const groupName = await vscode.window.showInputBox({
             prompt: 'Enter new group name',
             validateInput: value => {
@@ -492,8 +519,21 @@ class FavoritesProvider {
 
         if (groupName) {
             console.log('\n### > Creating new group:', groupName);
-            // 创建新的空分组
-            this.groups.set(groupName, new Map());
+            // 创建新的空分组，包含完整的数据结构
+            this.groups.set(groupName, {
+                files: new Map(),          // 存储文件
+                subGroups: new Map(),      // 存储子分组
+                parentGroup: parentGroup ? parentGroup.name : null  // 存储父分组引用
+            });
+            
+            // 如果有父分组，将新分组添加到父分组的 subGroups 中
+            if (parentGroup) {
+                const parent = this.groups.get(parentGroup.name);
+                if (parent) {
+                    parent.subGroups.set(groupName, true);
+                }
+            }
+
             this.saveFavorites();
             this._onDidChangeTreeData.fire();
         }
@@ -504,8 +544,8 @@ class FavoritesProvider {
         if (!targetGroup) {
             // 获取所有选中的项目
             const selectedItems = item ? 
-                [item, ...this.getSelectedItems().filter(i => i !== item)] : 
-                this.getSelectedItems();
+                [item, ...this.view.selection.filter(i => i !== item)] : 
+                this.view.selection;
 
             console.log('\n### > Selected items for move:', JSON.stringify(selectedItems, null, 2));
             
@@ -530,31 +570,32 @@ class FavoritesProvider {
                         if (targetGroup === '(Default Group)') {
                             // 移动到默认分组
                             if (item.groupName) {
-                                this.groups.get(item.groupName).delete(item.path);
+                                this.groups.get(item.groupName).files.delete(item.path);
                             }
                             delete item.groupName;
                             this.favorites.set(item.path, item);
                         } else {
                             // 移动到指定分组
                             if (item.groupName) {
-                                this.groups.get(item.groupName).delete(item.path);
+                                this.groups.get(item.groupName).files.delete(item.path);
                             } else {
                                 this.favorites.delete(item.path);
                             }
                             item.groupName = targetGroup;
                             if (!this.groups.has(targetGroup)) {
-                                this.groups.set(targetGroup, new Map());
+                                this.groups.set(targetGroup, {
+                                    files: new Map(),
+                                    subGroups: new Map(),
+                                    parentGroup: null
+                                });
                             }
-                            this.groups.get(targetGroup).set(item.path, item);
+                            this.groups.get(targetGroup).files.set(item.path, item);
                         }
                     }
                     this.saveFavorites();
                     this._onDidChangeTreeData.fire();
                 }
             }
-        } else {
-            // 直接移动到指定分组的逻辑保持不变
-            // ... 原有代码 ...
         }
     }
 
@@ -562,8 +603,8 @@ class FavoritesProvider {
         if (!targetGroup) {
             // 获取所有选中的项目
             const selectedItems = item ? 
-                [item, ...this.getSelectedItems().filter(i => i !== item)] : 
-                this.getSelectedItems();
+                [item, ...treeView.selection.filter(i => i !== item)] : 
+                treeView.selection;
 
             console.log('\n### > Selected items for copy:', JSON.stringify(selectedItems, null, 2));
             
@@ -591,19 +632,22 @@ class FavoritesProvider {
                             this.favorites.set(newItem.path, newItem);
                         } else {
                             newItem.groupName = targetGroup;
+                            // 确保目标分组存在且有正确的数据结构
                             if (!this.groups.has(targetGroup)) {
-                                this.groups.set(targetGroup, new Map());
+                                this.groups.set(targetGroup, {
+                                    files: new Map(),
+                                    subGroups: new Map(),
+                                    parentGroup: null
+                                });
                             }
-                            this.groups.get(targetGroup).set(newItem.path, newItem);
+                            // 使用 files Map 来存储文件
+                            this.groups.get(targetGroup).files.set(newItem.path, newItem);
                         }
                     }
                     this.saveFavorites();
                     this._onDidChangeTreeData.fire();
                 }
             }
-        } else {
-            // 直接复制到指定分组的逻辑保持不变
-            // ... 原有代码 ...
         }
     }
 }
@@ -632,7 +676,7 @@ function activate(context) {
             // 如果只提供了一个 URI，添加单个文件
             favoritesProvider.addFavorite(uri);
         } else {
-            // 如果没有提�� URI，使用当前活动编辑器
+            // 如果没有提供 URI，使用当前活动编辑器
             const activeUri = vscode.window.activeTextEditor?.document.uri;
             if (activeUri) {
                 favoritesProvider.addFavorite(activeUri);
@@ -812,8 +856,8 @@ function activate(context) {
     });
 
     // 注册添加新分组的命令
-    let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
-        await favoritesProvider.addNewGroup();
+    let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async (parentGroup) => {
+        await favoritesProvider.addNewGroup(parentGroup);
     });
 
     let moveToGroup = vscode.commands.registerCommand('vscode-favorites.moveToGroup', async (item) => {

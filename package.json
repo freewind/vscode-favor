@@ -118,6 +118,21 @@
                     "group": "inline@3"
                 },
                 {
+                    "command": "vscode-favorites.moveToGroup",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "1_modification@1"
+                },
+                {
+                    "command": "vscode-favorites.copyToGroup",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "1_modification@2"
+                },
+                {
+                    "command": "vscode-favorites.removeFromFavorites",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "1_modification@3"
+                },
+                {
                     "command": "vscode-favorites.deleteGroup",
                     "when": "view == favoritesList && viewItem == group",
                     "group": "inline@2"

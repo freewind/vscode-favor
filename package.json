@@ -89,6 +89,11 @@
                 "command": "vscode-favorites.deactivateGroup",
                 "title": "Deactivate Group",
                 "icon": "$(heart-filled)"
+            },
+            {
+                "command": "vscode-favorites.openDataFile",
+                "title": "Open Data File",
+                "icon": "$(json)"
             }
         ],
         "menus": {
@@ -189,6 +194,11 @@
                     "command": "vscode-favorites.removeAll",
                     "when": "view == favoritesList",
                     "group": "navigation@2"
+                },
+                {
+                    "command": "vscode-favorites.openDataFile",
+                    "when": "view == favoritesList",
+                    "group": "navigation@3"
                 }
             ]
         },

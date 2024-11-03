@@ -26,14 +26,15 @@
             "explorer/context": [
                 {
                     "command": "vscode-favorites.addToFavorites",
-                    "group": "navigation"
+                    "group": "9_favorites@1",
+                    "when": "true"
                 }
             ],
-            "view/item/context": [
+            "editor/context": [
                 {
-                    "command": "vscode-favorites.removeFromFavorites",
-                    "group": "navigation",
-                    "when": "view == favoritesList"
+                    "command": "vscode-favorites.addToFavorites",
+                    "group": "9_favorites@1",
+                    "when": "true"
                 }
             ]
         },

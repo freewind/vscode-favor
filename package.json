@@ -15,7 +15,7 @@
         "commands": [
             {
                 "command": "vscode-favorites.addToFavorites",
-                "title": "Add to Favorites",
+                "title": "Add to Favorites (or active group)",
                 "enablement": "resourceLangId"
             },
             {

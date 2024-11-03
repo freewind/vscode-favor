@@ -101,16 +101,54 @@ class FavoritesProvider {
         this._onDidChangeTreeData.fire();
     }
 
+    getGroups() {
+        return Array.from(this.groups.keys());
+    }
+
     async addToGroup(uri, groupName) {
         if (!groupName) {
-            const result = await vscode.window.showInputBox({
-                placeHolder: "Enter group name",
-                prompt: "Enter a name for the favorite group"
+            // 获取现有分组
+            const groups = this.getGroups();
+            const items = [];
+            
+            // 添加现有分组到选项中
+            groups.forEach(group => {
+                items.push({
+                    label: group,
+                    group: true
+                });
             });
-            if (!result) return;
-            groupName = result;
+
+            // 添加分隔符和"New Group"选项
+            if (groups.length > 0) {
+                items.push({ kind: vscode.QuickPickItemKind.Separator });
+            }
+            items.push({
+                label: "New Group...",
+                group: false
+            });
+
+            // 显示快速选择菜单
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select or create a group'
+            });
+
+            if (!selected) return;
+
+            if (!selected.group) {
+                // 如果选择了"New Group"，提示输入新组名
+                const newGroupName = await vscode.window.showInputBox({
+                    placeHolder: "Enter group name",
+                    prompt: "Enter a name for the new favorite group"
+                });
+                if (!newGroupName) return;
+                groupName = newGroupName;
+            } else {
+                groupName = selected.label;
+            }
         }
 
+        // 创建新组或添加到现有组
         if (!this.groups.has(groupName)) {
             this.groups.set(groupName, new Map());
         }

@@ -366,7 +366,7 @@ class FavoritesProvider {
                     }
                 }
             }
-            // 如果目标是默认分组区域
+            // 如���目标是默认分组区域
             else if (!target) {
                 console.log('Dropping into default group');
                 for (const source of items) {
@@ -632,7 +632,7 @@ function activate(context) {
             // 如果只提供了一个 URI，添加单个文件
             favoritesProvider.addFavorite(uri);
         } else {
-            // 如果没有提供 URI，使用当前活动编辑器
+            // 如果没有提�� URI，使用当前活动编辑器
             const activeUri = vscode.window.activeTextEditor?.document.uri;
             if (activeUri) {
                 favoritesProvider.addFavorite(activeUri);
@@ -641,38 +641,55 @@ function activate(context) {
     });
 
     let removeFromFavorites = vscode.commands.registerCommand('vscode-favorites.removeFromFavorites', async (item) => {
-        // 如果是从按钮点击，只删除该项
-        if (item) {
+        // 如果是从按钮点击，获取所有选中的项目
+        const selectedItems = item ? 
+            // 如果是从按钮点击，合并当前项和其他选中项
+            [item, ...treeView.selection.filter(i => i !== item)] : 
+            // 如果是从右键菜单，直接获取所有选中项
+            treeView.selection;
+
+        console.log('\n### > Selected items for removal:', JSON.stringify(selectedItems, null, 2));
+        
+        if (selectedItems && selectedItems.length > 0) {
+            let message;
+            if (selectedItems.length === 1) {
+                const item = selectedItems[0];
+                const itemDesc = item.groupName ? 
+                    `"${item.name}" from group "${item.groupName}"` : 
+                    `"${item.name}"`;
+                message = `Are you sure you want to remove ${itemDesc} from favorites?`;
+            } else {
+                // 按组分类文件
+                const groupedFiles = new Map();
+                selectedItems.forEach(item => {
+                    const groupName = item.groupName || '(Default Group)';
+                    if (!groupedFiles.has(groupName)) {
+                        groupedFiles.set(groupName, []);
+                    }
+                    groupedFiles.get(groupName).push(item.name);
+                });
+
+                // 构建消息
+                message = `Are you sure you want to remove these ${selectedItems.length} files from favorites?\n\n`;
+                for (const [groupName, files] of groupedFiles) {
+                    message += `${groupName}:\n`;
+                    files.forEach(fileName => {
+                        message += `  • ${fileName}\n`;
+                    });
+                    message += '\n';
+                }
+            }
+            
             const answer = await vscode.window.showWarningMessage(
-                'Are you sure you want to remove this item from favorites?',
-                { modal: true },
+                message,
+                { modal: true, detail: selectedItems.length > 1 ? 'This action cannot be undone.' : undefined },
                 'Remove'
             );
 
             if (answer === 'Remove') {
-                favoritesProvider.removeFavorite(item);
-            }
-        } else {
-            // 如果是从右键菜单，获取所有选中的项目
-            const selectedItems = favoritesProvider.getSelectedItems();
-            console.log('\n### > Selected items for removal:', JSON.stringify(selectedItems, null, 2));
-            
-            if (selectedItems && selectedItems.length > 0) {
-                const message = selectedItems.length === 1 
-                    ? 'Are you sure you want to remove this item from favorites?'
-                    : `Are you sure you want to remove these ${selectedItems.length} items from favorites?`;
-                
-                const answer = await vscode.window.showWarningMessage(
-                    message,
-                    { modal: true },
-                    'Remove'
-                );
-
-                if (answer === 'Remove') {
-                    selectedItems.forEach(item => {
-                        favoritesProvider.removeFavorite(item);
-                    });
-                }
+                selectedItems.forEach(item => {
+                    favoritesProvider.removeFavorite(item);
+                });
             }
         }
     });

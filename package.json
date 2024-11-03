@@ -217,5 +217,24 @@
         "package": "webpack --mode production --devtool hidden-source-map",
         "compile": "webpack",
         "pretest": "webpack"
-    }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/freewind/vscode-favor.git"
+    },
+    "bugs": {
+        "url": "https://github.com/freewind/vscode-favor/issues"
+    },
+    "homepage": "https://github.com/freewind/vscode-favor#readme",
+    "icon": "images/icon.png",
+    "galleryBanner": {
+        "color": "#C80000",
+        "theme": "dark"
+    },
+    "keywords": [
+        "favorites",
+        "files",
+        "groups",
+        "bookmarks"
+    ]
 }

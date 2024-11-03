@@ -273,42 +273,130 @@ class FavoritesProvider {
         console.log('\n=== handleDrag Start ===');
         console.log('Input items:', JSON.stringify(items, null, 2));
         
-        let uris = [];
-        for (const item of items) {
-            const itemUris = await this.getDragUri(item);
-            if (Array.isArray(itemUris)) {
-                console.log(`Adding ${itemUris.length} URIs from group`);
-                uris.push(...itemUris);
-            } else {
-                console.log('Adding single URI');
-                uris.push(itemUris);
-            }
-        }
-        
-        console.log('All URIs collected:', uris.map(uri => uri.toString()));
-        
         try {
-            dataTransfer.set('vscode-file-uri-list', new vscode.DataTransferItem(uris));
-            console.log('Added URIs with vscode-file-uri-list format');
-            
-            if (items[0].isGroup) {
-                const groupItems = this.groups.get(items[0].name);
-                if (groupItems && groupItems.size > 0) {
-                    const firstFile = Array.from(groupItems.values())[0];
-                    items[0].resourceUri = vscode.Uri.file(firstFile.path);
-                    console.log('Set resourceUri for group:', items[0].resourceUri.toString());
-                }
+            // 设置拖拽数据
+            const dragData = {
+                items: items,
+                isCopy: false  // 默认为移动操作
+            };
+
+            // 检查是否按下了修饰键
+            if (process.platform === 'darwin') {
+                dragData.isCopy = token.isCancellationRequested;
+                console.log('macOS: Command key state:', dragData.isCopy);
+            } else {
+                dragData.isCopy = token.isCancellationRequested;
+                console.log('Windows/Linux: Ctrl key state:', dragData.isCopy);
             }
+
+            console.log('Prepared drag data:', JSON.stringify(dragData, null, 2));
+            
+            // 设置拖拽数据
+            const transferItem = new vscode.DataTransferItem(dragData);
+            dataTransfer.set('application/vnd.code.tree.favoritesList', transferItem);
+            console.log('Set favoritesList data');
+            
+            // 设置拖拽效果
+            dataTransfer.set('vscode-drag-effect', new vscode.DataTransferItem(dragData.isCopy ? 'copy' : 'move'));
+            console.log('Set drag effect:', dragData.isCopy ? 'copy' : 'move');
         } catch (error) {
-            console.error('Error in data transfer:', error);
+            console.error('Error in handleDrag:', error);
             console.error('Error details:', {
                 name: error.name,
                 message: error.message,
                 stack: error.stack
             });
         }
-        
         console.log('=== handleDrag End ===\n');
+    }
+
+    async handleDrop(target, dataTransfer, token) {
+        console.log('\n=== handleDrop Start ===');
+        console.log('Target:', JSON.stringify(target, null, 2));
+        
+        try {
+            // 直接从 dataTransfer 获取数据
+            const transferItem = dataTransfer.get('application/vnd.code.tree.favoritesList');
+            console.log('Transfer item:', transferItem ? 'found' : 'not found');
+            
+            if (!transferItem) {
+                console.log('No transfer item found');
+                return;
+            }
+
+            const dragData = transferItem.value;
+            console.log('Drag data:', JSON.stringify(dragData, null, 2));
+
+            const items = dragData.items;
+            const isCopy = dragData.isCopy;
+            console.log('Processing items:', JSON.stringify(items, null, 2));
+            console.log('Operation type:', isCopy ? 'copy' : 'move');
+
+            // 如果目标是分组
+            if (target && target.isGroup) {
+                console.log('Dropping into group:', target.name);
+                for (const source of items) {
+                    if (source.type === 'file') {
+                        console.log('Processing file:', source.path);
+                        // 创建新项
+                        const newItem = { ...source, groupName: target.name };
+                        
+                        // 如果不是复制操作，从原位置移除
+                        if (!isCopy) {
+                            if (source.groupName) {
+                                console.log('Removing from source group:', source.groupName);
+                                this.groups.get(source.groupName)?.delete(source.path);
+                            } else {
+                                console.log('Removing from default group');
+                                this.favorites.delete(source.path);
+                            }
+                        }
+
+                        // 添加到目标分组
+                        if (!this.groups.has(target.name)) {
+                            console.log('Creating new group:', target.name);
+                            this.groups.set(target.name, new Map());
+                        }
+                        console.log('Adding to target group:', target.name);
+                        this.groups.get(target.name).set(source.path, newItem);
+                    }
+                }
+            }
+            // 如果目标是默认分组区域
+            else if (!target) {
+                console.log('Dropping into default group');
+                for (const source of items) {
+                    if (source.type === 'file' && source.groupName) {
+                        console.log('Processing file:', source.path);
+                        // 创建新项
+                        const newItem = { ...source };
+                        delete newItem.groupName;
+                        
+                        // 如果不是复制操作，从原分组移除
+                        if (!isCopy) {
+                            console.log('Removing from source group:', source.groupName);
+                            this.groups.get(source.groupName)?.delete(source.path);
+                        }
+                        
+                        console.log('Adding to default group');
+                        this.favorites.set(source.path, newItem);
+                    }
+                }
+            }
+
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+            console.log('Operation completed successfully');
+            
+        } catch (error) {
+            console.error('Error in handleDrop:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
+        }
+        console.log('=== handleDrop End ===\n');
     }
 
     async renameGroup(groupElement) {
@@ -407,6 +495,91 @@ class FavoritesProvider {
         }
         console.log('\n### > addNewGroup end');
     }
+
+    async moveToGroup(item) {
+        console.log('\n### > moveToGroup:', JSON.stringify(item, null, 2));
+        
+        // 准备分组列表，包括默认分组
+        const groups = ['(Default Group)', ...Array.from(this.groups.keys())];
+        // 排除当前所在分组
+        const availableGroups = groups.filter(g => g !== item.groupName);
+        
+        // 让用户选择目标分组
+        const targetGroup = await vscode.window.showQuickPick(availableGroups, {
+            placeHolder: 'Select target group'
+        });
+
+        if (targetGroup) {
+            console.log('\n### > Moving to group:', targetGroup);
+            
+            // 从原分组移除
+            if (item.groupName) {
+                // 从组内移除
+                this.groups.get(item.groupName).delete(item.path);
+                if (this.groups.get(item.groupName).size === 0) {
+                    this.groups.delete(item.groupName);
+                }
+            } else {
+                // 从默认分组移除
+                this.favorites.delete(item.path);
+            }
+
+            // 添加到新分组
+            if (targetGroup === '(Default Group)') {
+                // 移动到默认分组
+                delete item.groupName;
+                this.favorites.set(item.path, item);
+            } else {
+                // 移动到指定分组
+                item.groupName = targetGroup;
+                if (!this.groups.has(targetGroup)) {
+                    this.groups.set(targetGroup, new Map());
+                }
+                this.groups.get(targetGroup).set(item.path, item);
+            }
+
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+        }
+    }
+
+    async copyToGroup(item) {
+        console.log('\n### > copyToGroup:', JSON.stringify(item, null, 2));
+        
+        // 准备分组列表，包括默认分组
+        const groups = ['(Default Group)', ...Array.from(this.groups.keys())];
+        // 排除当前所在分组
+        const availableGroups = groups.filter(g => g !== item.groupName);
+        
+        // 让用户选择目标分组
+        const targetGroup = await vscode.window.showQuickPick(availableGroups, {
+            placeHolder: 'Select target group'
+        });
+
+        if (targetGroup) {
+            console.log('\n### > Copying to group:', targetGroup);
+            
+            // 创建项目的副本
+            const newItem = { ...item };
+            
+            // 添加到新分组
+            if (targetGroup === '(Default Group)') {
+                // 复制到默认分组
+                delete newItem.groupName;
+                this.favorites.set(newItem.path, newItem);
+            } else {
+                // 复制到指定分组
+                newItem.groupName = targetGroup;
+                if (!this.groups.has(targetGroup)) {
+                    this.groups.set(targetGroup, new Map());
+                }
+                this.groups.get(targetGroup).set(newItem.path, newItem);
+            }
+
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+        }
+    }
 }
 
 function activate(context) {
@@ -416,7 +589,10 @@ function activate(context) {
         treeDataProvider: favoritesProvider,
         canSelectMany: true,
         dragAndDropController: {
-            handleDrag: (items, dataTransfer, token) => favoritesProvider.handleDrag(items, dataTransfer, token)
+            dropMimeTypes: ['application/vnd.code.tree.favoritesList'],
+            dragMimeTypes: ['application/vnd.code.tree.favoritesList'],
+            handleDrag: (items, dataTransfer, token) => favoritesProvider.handleDrag(items, dataTransfer, token),
+            handleDrop: (target, dataTransfer, token) => favoritesProvider.handleDrop(target, dataTransfer, token)
         }
     });
     
@@ -491,6 +667,14 @@ function activate(context) {
         await favoritesProvider.addNewGroup();
     });
 
+    let moveToGroup = vscode.commands.registerCommand('vscode-favorites.moveToGroup', async (item) => {
+        await favoritesProvider.moveToGroup(item);
+    });
+
+    let copyToGroup = vscode.commands.registerCommand('vscode-favorites.copyToGroup', async (item) => {
+        await favoritesProvider.copyToGroup(item);
+    });
+
     context.subscriptions.push(
         treeView,
         addToFavorites,
@@ -502,7 +686,9 @@ function activate(context) {
         removeFromGroup,
         renameGroup,
         deleteGroup,
-        addNewGroup
+        addNewGroup,
+        moveToGroup,
+        copyToGroup
     );
 }
 

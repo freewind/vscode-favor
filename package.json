@@ -57,6 +57,16 @@
                 "command": "vscode-favorites.addNewGroup",
                 "title": "Add New Group",
                 "icon": "$(add)"
+            },
+            {
+                "command": "vscode-favorites.moveToGroup",
+                "title": "Move to Group",
+                "icon": "$(move)"
+            },
+            {
+                "command": "vscode-favorites.copyToGroup",
+                "title": "Copy to Group",
+                "icon": "$(copy)"
             }
         ],
         "menus": {
@@ -86,9 +96,19 @@
             ],
             "view/item/context": [
                 {
+                    "command": "vscode-favorites.moveToGroup",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "vscode-favorites.copyToGroup",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "inline@2"
+                },
+                {
                     "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList && viewItem != group",
-                    "group": "inline"
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "inline@3"
                 },
                 {
                     "command": "vscode-favorites.deleteGroup",
@@ -115,7 +135,11 @@
                     "id": "favoritesList",
                     "name": "Favorites",
                     "canSelectMany": true,
-                    "dragAndDropController": true
+                    "dragAndDropController": {
+                        "supportedTypes": ["file", "group"],
+                        "dropMimeTypes": ["application/vnd.code.tree.favoritesList"],
+                        "dragMimeTypes": ["application/vnd.code.tree.favoritesList"]
+                    }
                 }
             ]
         }

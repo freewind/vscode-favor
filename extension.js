@@ -8,6 +8,7 @@ class FavoritesProvider {
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.favorites = new Map();
         this.context = context;
+        this.view = null;
         this.loadFavorites();
     }
 
@@ -24,16 +25,22 @@ class FavoritesProvider {
     }
 
     getTreeItem(element) {
-        return {
-            label: element.name,
-            collapsible: element.type === 'folder' ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-            command: element.type === 'file' ? {
-                command: 'vscode.open',
-                arguments: [vscode.Uri.file(element.path)],
+        const treeItem = new vscode.TreeItem(
+            element.name,
+            element.type === 'folder' ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
+        );
+        
+        if (element.type === 'file') {
+            treeItem.command = {
+                command: 'vscode-favorites.openFavoriteFile',
+                arguments: [element],
                 title: 'Open File'
-            } : undefined,
-            iconPath: element.type === 'folder' ? new vscode.ThemeIcon('folder') : new vscode.ThemeIcon('file')
-        };
+            };
+        }
+        
+        treeItem.iconPath = element.type === 'folder' ? new vscode.ThemeIcon('folder') : new vscode.ThemeIcon('file');
+        treeItem.contextValue = element.type;
+        return treeItem;
     }
 
     getChildren(element) {
@@ -60,11 +67,25 @@ class FavoritesProvider {
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
     }
+
+    setTreeView(view) {
+        this.view = view;
+    }
+
+    getSelectedItems() {
+        return this.view ? this.view.selection : [];
+    }
 }
 
 function activate(context) {
     const favoritesProvider = new FavoritesProvider(context);
-    vscode.window.registerTreeDataProvider('favoritesList', favoritesProvider);
+    
+    const treeView = vscode.window.createTreeView('favoritesList', {
+        treeDataProvider: favoritesProvider,
+        canSelectMany: true
+    });
+    
+    favoritesProvider.setTreeView(treeView);
 
     let addToFavorites = vscode.commands.registerCommand('vscode-favorites.addToFavorites', (uri) => {
         if (!uri) {
@@ -81,7 +102,40 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(addToFavorites, removeFromFavorites);
+    let openFavoriteFiles = vscode.commands.registerCommand('vscode-favorites.openFavoriteFiles', async () => {
+        const selectedItems = favoritesProvider.getSelectedItems();
+        for (const item of selectedItems) {
+            if (item.type === 'file') {
+                await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(item.path));
+            }
+        }
+    });
+
+    let openSelectedFiles = vscode.commands.registerCommand('vscode-favorites.openSelectedFiles', () => {
+        const selectedItems = favoritesProvider.getSelectedItems();
+        if (selectedItems) {
+            selectedItems.forEach(item => {
+                if (item.type === 'file') {
+                    vscode.commands.executeCommand('vscode.open', vscode.Uri.file(item.path));
+                }
+            });
+        }
+    });
+
+    let openFavoriteFile = vscode.commands.registerCommand('vscode-favorites.openFavoriteFile', (item) => {
+        if (item && item.type === 'file') {
+            vscode.commands.executeCommand('vscode.open', vscode.Uri.file(item.path));
+        }
+    });
+
+    context.subscriptions.push(
+        treeView,
+        addToFavorites,
+        removeFromFavorites,
+        openFavoriteFiles,
+        openSelectedFiles,
+        openFavoriteFile
+    );
 }
 
 function deactivate() {}

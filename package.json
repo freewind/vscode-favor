@@ -20,6 +20,18 @@
             {
                 "command": "vscode-favorites.removeFromFavorites",
                 "title": "Remove from Favorites"
+            },
+            {
+                "command": "vscode-favorites.openFavoriteFile",
+                "title": "Open Favorite File"
+            },
+            {
+                "command": "vscode-favorites.openSelectedFiles",
+                "title": "Open Selected Files"
+            },
+            {
+                "command": "vscode-favorites.openFavoriteFiles",
+                "title": "Open Selected Files"
             }
         ],
         "menus": {
@@ -36,13 +48,28 @@
                     "group": "9_favorites@1",
                     "when": "true"
                 }
+            ],
+            "view/item/context": [
+                {
+                    "command": "vscode-favorites.removeFromFavorites",
+                    "when": "view == favoritesList",
+                    "group": "inline"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "vscode-favorites.openFavoriteFiles",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "navigation"
+                }
             ]
         },
         "views": {
             "explorer": [
                 {
                     "id": "favoritesList",
-                    "name": "Favorites"
+                    "name": "Favorites",
+                    "canSelectMany": true
                 }
             ]
         }

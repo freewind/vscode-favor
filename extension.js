@@ -421,7 +421,7 @@ class FavoritesProvider {
                 if (groupItems) {
                     // 创建新组并复制内容
                     this.groups.set(newName, groupItems);
-                    // 删除旧组
+                    // 删除���组
                     this.groups.delete(groupElement.name);
                     // 更新所有项的 groupName
                     groupItems.forEach(item => {
@@ -598,12 +598,19 @@ function activate(context) {
     
     favoritesProvider.setTreeView(treeView);
 
-    let addToFavorites = vscode.commands.registerCommand('vscode-favorites.addToFavorites', (uri) => {
-        if (!uri) {
-            uri = vscode.window.activeTextEditor?.document.uri;
-        }
-        if (uri) {
+    let addToFavorites = vscode.commands.registerCommand('vscode-favorites.addToFavorites', async (uri, uris) => {
+        if (uris) {
+            // 如果提供了多个 URI，添加所有文件
+            uris.forEach(uri => favoritesProvider.addFavorite(uri));
+        } else if (uri) {
+            // 如果只提供了一个 URI，添加单个文件
             favoritesProvider.addFavorite(uri);
+        } else {
+            // 如果没有提供 URI，使用当前活动编辑器
+            const activeUri = vscode.window.activeTextEditor?.document.uri;
+            if (activeUri) {
+                favoritesProvider.addFavorite(activeUri);
+            }
         }
     });
 
@@ -639,12 +646,80 @@ function activate(context) {
         }
     });
 
-    let addToGroup = vscode.commands.registerCommand('vscode-favorites.addToGroup', async (uri) => {
-        if (!uri) {
-            uri = vscode.window.activeTextEditor?.document.uri;
+    let addToGroup = vscode.commands.registerCommand('vscode-favorites.addToGroup', async (uri, uris) => {
+        console.log('\n### > addToGroup called with:', {
+            uri: uri?.fsPath,
+            uris: uris?.map(u => u.fsPath)
+        });
+
+        // 收集所有需要添加的 URI
+        let urisToAdd = [];
+        if (uris) {
+            // 如果提供了多个 URI，添加所有文件
+            urisToAdd = uris;
+        } else if (uri) {
+            // 如果只提供了一个 URI，添加单个文件
+            urisToAdd = [uri];
+        } else {
+            // 如果没有提供 URI，使用当前活动编辑器
+            const activeUri = vscode.window.activeTextEditor?.document.uri;
+            if (activeUri) {
+                urisToAdd = [activeUri];
+            }
         }
-        if (uri) {
-            await favoritesProvider.addToGroup(uri);
+
+        // 如果有文件要添加
+        if (urisToAdd.length > 0) {
+            // 获取现有分组
+            const groups = favoritesProvider.getGroups();
+            const items = [];
+            
+            // 添加现有分组到选项中
+            groups.forEach(group => {
+                items.push({
+                    label: group,
+                    group: true
+                });
+            });
+
+            // 添加分隔符和"New Group"选项
+            if (groups.length > 0) {
+                items.push({ kind: vscode.QuickPickItemKind.Separator });
+            }
+            items.push({
+                label: "New Group...",
+                group: false
+            });
+
+            // 显示快速选择菜单
+            const selected = await vscode.window.showQuickPick(items, {
+                placeHolder: 'Select or create a group'
+            });
+
+            if (selected) {
+                let targetGroup = selected.label;
+                if (!selected.group) {
+                    // 如果选择了"New Group"，提示输入新组名
+                    const newGroupName = await vscode.window.showInputBox({
+                        placeHolder: "Enter group name",
+                        prompt: "Enter a name for the new favorite group",
+                        validateInput: value => {
+                            if (!value) return 'Group name cannot be empty';
+                            if (favoritesProvider.groups.has(value)) {
+                                return 'Group name already exists';
+                            }
+                            return null;
+                        }
+                    });
+                    if (!newGroupName) return;
+                    targetGroup = newGroupName;
+                }
+
+                // 添加所有文件到目标分组
+                for (const uri of urisToAdd) {
+                    await favoritesProvider.addToGroup(uri, targetGroup);
+                }
+            }
         }
     });
 

@@ -15,7 +15,8 @@
         "commands": [
             {
                 "command": "vscode-favorites.addToFavorites",
-                "title": "Add to Favorites"
+                "title": "Add to Favorites",
+                "enablement": "resourceLangId"
             },
             {
                 "command": "vscode-favorites.removeFromFavorites",
@@ -74,12 +75,18 @@
                 {
                     "command": "vscode-favorites.addToFavorites",
                     "group": "9_favorites@1",
-                    "when": "true"
+                    "when": "true",
+                    "args": {
+                        "multiple": true
+                    }
                 },
                 {
                     "command": "vscode-favorites.addToGroup",
                     "group": "9_favorites@2",
-                    "when": "true"
+                    "when": "true",
+                    "args": {
+                        "multiple": true
+                    }
                 }
             ],
             "editor/context": [

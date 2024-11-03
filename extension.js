@@ -62,6 +62,33 @@ class FavoritesProvider {
         
         treeItem.iconPath = element.type === 'folder' ? new vscode.ThemeIcon('folder') : new vscode.ThemeIcon('file');
         treeItem.contextValue = element.type;
+
+        if (!element.isGroup) {
+            treeItem.buttons = [
+                {
+                    icon: new vscode.ThemeIcon('trash'),
+                    tooltip: 'Remove from Favorites',
+                    command: {
+                        command: 'vscode-favorites.removeFromFavorites',
+                        arguments: [element],
+                        title: 'Remove from Favorites'
+                    }
+                }
+            ];
+
+            if (element.groupName) {
+                treeItem.buttons.push({
+                    icon: new vscode.ThemeIcon('remove'),
+                    tooltip: 'Remove from Group',
+                    command: {
+                        command: 'vscode-favorites.removeFromGroup',
+                        arguments: [element, element.groupName],
+                        title: 'Remove from Group'
+                    }
+                });
+            }
+        }
+
         return treeItem;
     }
 

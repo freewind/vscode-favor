@@ -19,7 +19,8 @@
             },
             {
                 "command": "vscode-favorites.removeFromFavorites",
-                "title": "Remove from Favorites"
+                "title": "Remove from Favorites",
+                "icon": "$(trash)"
             },
             {
                 "command": "vscode-favorites.openFavoriteFile",
@@ -39,7 +40,8 @@
             },
             {
                 "command": "vscode-favorites.removeFromGroup",
-                "title": "Remove from Group"
+                "title": "Remove from Group",
+                "icon": "$(x)"
             }
         ],
         "menus": {
@@ -67,23 +69,23 @@
                     "when": "true"
                 }
             ],
-            "view/item/context": [
-                {
-                    "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList && viewItem != group",
-                    "group": "inline"
-                },
-                {
-                    "command": "vscode-favorites.removeFromGroup",
-                    "when": "view == favoritesList && viewItem != group",
-                    "group": "inline"
-                }
-            ],
             "view/title": [
                 {
                     "command": "vscode-favorites.openFavoriteFiles",
-                    "when": "view == favoritesList && viewItem == file",
+                    "when": "view == favoritesList",
                     "group": "navigation"
+                }
+            ],
+            "view/item/context": [
+                {
+                    "command": "vscode-favorites.removeFromFavorites",
+                    "when": "view == favoritesList",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "vscode-favorites.removeFromGroup",
+                    "when": "view == favoritesList",
+                    "group": "inline@2"
                 }
             ]
         },

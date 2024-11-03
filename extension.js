@@ -119,7 +119,7 @@ class FavoritesProvider {
         // }
         this.groups = new Map();
 
-        // VS Code 的扩展上下文，用于存储全局状态
+        // VS Code 的扩���上下文，用于存储全局状态
         this.context = context;
 
         // TreeView 实例的引用，用于获取选中项等信息
@@ -217,7 +217,7 @@ class FavoritesProvider {
             
             // 添加分组的操作按钮
             treeItem.buttons = [
-                // 激活/取消激活按钮
+                // 激活/取消激活��钮
                 {
                     icon: new vscode.ThemeIcon(isActive ? 'circle-filled' : 'circle-outline'),
                     tooltip: isActive ? 'Deactivate Group' : 'Set as Active Group',
@@ -349,23 +349,84 @@ class FavoritesProvider {
         return [];
     }
 
-    addFavorite(uri) {
+    async addFavorite(uri) {
         const stat = fs.statSync(uri.fsPath);
-        const favorite = {
-            path: uri.fsPath,
-            name: path.basename(uri.fsPath),
-            type: stat.isDirectory() ? 'folder' : 'file'
-        };
+        
+        if (stat.isDirectory()) {
+            // 如果是目录，递归添加所有文件
+            try {
+                const files = await this.getAllFilesInDirectory(uri.fsPath);
+                console.log('\n### > Found files in directory:', files);
+                
+                // 为每个文件创建收藏项
+                files.forEach(filePath => {
+                    const favorite = {
+                        path: filePath,
+                        name: path.basename(filePath),
+                        type: 'file'
+                    };
 
-        if (this.activeGroup && this.groups.has(this.activeGroup)) {
-            favorite.groupName = this.activeGroup;
-            this.groups.get(this.activeGroup).files.set(uri.fsPath, favorite);
+                    if (this.activeGroup && this.groups.has(this.activeGroup)) {
+                        favorite.groupName = this.activeGroup;
+                        this.groups.get(this.activeGroup).files.set(filePath, favorite);
+                    } else {
+                        this.favorites.set(filePath, favorite);
+                    }
+                });
+            } catch (error) {
+                console.error('Error reading directory:', error);
+                vscode.window.showErrorMessage(`Failed to add directory: ${error.message}`);
+            }
         } else {
-            this.favorites.set(uri.fsPath, favorite);
+            // 如果是单个文件，保持原有逻辑
+            const favorite = {
+                path: uri.fsPath,
+                name: path.basename(uri.fsPath),
+                type: 'file'
+            };
+
+            if (this.activeGroup && this.groups.has(this.activeGroup)) {
+                favorite.groupName = this.activeGroup;
+                this.groups.get(this.activeGroup).files.set(uri.fsPath, favorite);
+            } else {
+                this.favorites.set(uri.fsPath, favorite);
+            }
         }
 
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
+    }
+
+    /**
+     * 递归获取目录下的所有文件
+     * @param {string} dirPath - 目录路径
+     * @returns {Promise<string[]>} 文件路径数组
+     */
+    async getAllFilesInDirectory(dirPath) {
+        const files = [];
+        
+        // 读取目录内容
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            
+            // 忽略 .git 等特殊目录
+            if (entry.name.startsWith('.')) {
+                continue;
+            }
+
+            if (entry.isDirectory()) {
+                // 递归处理子目录
+                const subFiles = await this.getAllFilesInDirectory(fullPath);
+                files.push(...subFiles);
+            } else {
+                // 添加文件
+                files.push(fullPath);
+            }
+        }
+        
+        return files;
     }
 
     removeFavorite(item) {
@@ -759,7 +820,7 @@ class FavoritesProvider {
         return path;
     }
 
-    // 添加一个辅助方法来获取所有分组（包括完整路径）
+    // 添��一个辅助方法来获取所有分组（包括完整路径）
     getAllGroupsWithPath() {
         const groups = ['(Default Group)'];
         this.groups.forEach((_, groupName) => {

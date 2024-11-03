@@ -1,0 +1,16 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+devDependencies:
+  '@types/vscode':
+    specifier: ^1.95.0
+    version: 1.95.0
+
+packages:
+
+  /@types/vscode@1.95.0:
+    resolution: {integrity: sha512-0LBD8TEiNbet3NvWsmn59zLzOFu/txSlGxnv5yAFHCrhG9WvAnR3IvfHzMOs2aeWqgvNjq9pO99IUw8d3n+unw==}
+    dev: true

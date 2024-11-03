@@ -42,11 +42,6 @@
                 "command": "vscode-favorites.removeFromGroup",
                 "title": "Remove from Group",
                 "icon": "$(x)"
-            },
-            {
-                "command": "vscode-favorites.selectAllInGroup",
-                "title": "Select All Files in Group",
-                "icon": "$(check-all)"
             }
         ],
         "menus": {
@@ -84,12 +79,7 @@
             "view/item/context": [
                 {
                     "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList && viewItem != group",
-                    "group": "inline"
-                },
-                {
-                    "command": "vscode-favorites.selectAllInGroup",
-                    "when": "view == favoritesList && viewItem == group",
+                    "when": "view == favoritesList",
                     "group": "inline"
                 }
             ]

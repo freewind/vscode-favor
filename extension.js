@@ -1313,6 +1313,38 @@ function activate(context) {
         favoritesProvider.setActiveGroup(null);
     });
 
+    // 注册打开数据文件的命令
+    let openDataFile = vscode.commands.registerCommand('vscode-favorites.openDataFile', async () => {
+        // 获取当前工作区的第一个根目录
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder found');
+            return;
+        }
+
+        // 构建数据文件路径
+        const favorPath = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode', 'favor.json');
+
+        try {
+            // 确保文件存在
+            if (!fs.existsSync(favorPath.fsPath)) {
+                // 如果文件不存在，创建一个空的数据文件
+                const emptyData = {
+                    favorites: [],
+                    groups: {},
+                    activeGroup: null
+                };
+                fs.writeFileSync(favorPath.fsPath, JSON.stringify(emptyData, null, 2), 'utf8');
+            }
+
+            // 打开文件
+            await vscode.commands.executeCommand('vscode.open', favorPath);
+        } catch (error) {
+            console.error('Error opening data file:', error);
+            vscode.window.showErrorMessage(`Failed to open data file: ${error.message}`);
+        }
+    });
+
     /**
      * 将所有注册的命令和视图添加到订阅列表
      * 这样在扩展停用时，VS Code 会自动清理这些资源
@@ -1334,7 +1366,8 @@ function activate(context) {
         addNewSubGroup,
         removeAll,
         setActiveGroup,
-        deactivateGroup
+        deactivateGroup,
+        openDataFile
     );
 }
 

@@ -817,7 +817,7 @@ class FavoritesProvider {
 
         if (groupName) {
             console.log('\n### > Creating new group:', groupName);
-            // 建的空分组，包含完整的数据结构
+            // 建的空分组，包含完整数据结构
             this.groups.set(groupName, {
                 files: new Map(),          // 存储文件
                 subGroups: new Map(),      // 存储子分组
@@ -1252,8 +1252,9 @@ function activate(context) {
     });
 
     // 注册添加新分组的命令
-    let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async (parentGroup) => {
-        await favoritesProvider.addNewGroup(parentGroup);
+    let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
+        // 从右上角按钮调用时，不传入任何参数，所以这里不接收 parentGroup 参数
+        await favoritesProvider.addNewGroup(null);
     });
 
     let moveToGroup = vscode.commands.registerCommand('vscode-favorites.moveToGroup', async (item) => {

@@ -362,7 +362,7 @@ class FavoritesProvider {
     getChildren(element) {
         if (!element) {
             // 根级别：显示默认收藏和顶级分组
-            // 注意：顶级分组是指没 parentGroup 的分组
+            // 注意：顶级分组是指没有 parentGroup 的分组
             const defaultItems = Array.from(this.favorites.values());
             const topGroups = Array.from(this.groups.entries())
                 .filter(([_, group]) => !group.parentGroup)  // 只选择顶级分组
@@ -370,33 +370,33 @@ class FavoritesProvider {
                     name,
                     isGroup: true
                 }));
-            return [...defaultItems, ...topGroups];
+            return [...topGroups, ...defaultItems]; // 修改顺序：先显示分组，再显示文件
         }
         
         if (element.isGroup) {
-            // 如果是分组，显示其文件和子分组
+            // 如果是分组，显示其子分组和文件
             const group = this.groups.get(element.name);
             if (!group) return [];
 
-            // 获取分组内的文件，并添加分组信息
-            const files = Array.from(group.files.values()).map(item => ({
-                ...item,
-                groupName: element.name,
-                contextValue: 'file'  // 用于在 package.json 中的 when 子句判断
-            }));
-            
             // 获取子分组，并添加父分组信息
             const subGroups = Array.from(group.subGroups.keys()).map(name => ({
                 name,
                 isGroup: true,
                 parentGroup: element.name
             }));
+            
+            // 获取分组内的文件，并添加分组信息
+            const files = Array.from(group.files.values()).map(item => ({
+                ...item,
+                groupName: element.name,
+                contextValue: 'file'  // 用于在 package.json 中的 when 子句判断
+            }));
 
-            // 返回文件和子分组的组合
-            return [...files, ...subGroups];
+            // 返回子分组和文件的组合，先显示子分组，再显示文件
+            return [...subGroups, ...files];
         }
         
-        // 如果是文件节，没有子项
+        // 如果是文件节点，没有子项
         return [];
     }
 
@@ -1052,7 +1052,7 @@ class FavoritesProvider {
 
 /**
  * VS Code 扩展的激活函数
- * 当扩展被激活时（比如第一次使用相关命令时），VS Code 会调用这个函数
+ * 当��展被激活时（比如第一次使用相关命令时），VS Code 会调用这个函数
  * @param {vscode.ExtensionContext} context - VS Code 提供的扩展上下文
  */
 function activate(context) {

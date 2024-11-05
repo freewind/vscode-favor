@@ -138,17 +138,17 @@
             "view/item/context": [
                 {
                     "command": "vscode-favorites.setActiveGroup",
-                    "when": "view == favoritesList && viewItem == group",
+                    "when": "view == favoritesList && (viewItem == group || viewItem == defaultGroup)",
                     "group": "inline@0"
                 },
                 {
                     "command": "vscode-favorites.deactivateGroup",
-                    "when": "view == favoritesList && viewItem == activeGroup",
+                    "when": "view == favoritesList && (viewItem == activeGroup || viewItem == defaultGroupActive)",
                     "group": "inline@0"
                 },
                 {
                     "command": "vscode-favorites.addNewSubGroup",
-                    "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup)",
+                    "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup || viewItem == defaultGroup || viewItem == defaultGroupActive)",
                     "group": "inline@1"
                 },
                 {

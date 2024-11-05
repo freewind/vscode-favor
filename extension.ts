@@ -323,21 +323,24 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             // 创建分组的树节点
             const treeItem = new vscode.TreeItem(
                 label,
-                vscode.TreeItemCollapsibleState.Expanded  // 默认展开分组
-            ) as TreeItemWithButtons;  // 使用类型断言
+                vscode.TreeItemCollapsibleState.Expanded
+            ) as TreeItemWithButtons;
             
-            // contextValue 用于在 package.json 中的 when 子句中判断节点类型
-            treeItem.contextValue = isActive ? 'activeGroup' : 'group';
+            // 修改这里：为默认分组设置特殊的 contextValue
+            if (element.name === this.DEFAULT_GROUP) {
+                treeItem.contextValue = isActive ? 'defaultGroupActive' : 'defaultGroup';
+            } else {
+                treeItem.contextValue = isActive ? 'activeGroup' : 'group';
+            }
             
-            // 使用不同的图标颜色来区分活分组
             treeItem.iconPath = new vscode.ThemeIcon(
-                isActive ? 'folder-active' : 'folder-opened',  // 使用不同的文件夹图标
-                isActive ? new vscode.ThemeColor('notificationsWarningIcon.foreground') : undefined  // 使用警告色
+                isActive ? 'folder-active' : 'folder-opened',
+                isActive ? new vscode.ThemeColor('notificationsWarningIcon.foreground') : undefined
             );
             
             // 添加分组的操作按钮
-            treeItem.buttons = [
-                // 激活/取消激活钮
+            const buttons = [
+                // 激活/取消激活按钮
                 {
                     icon: new vscode.ThemeIcon(isActive ? 'circle-filled' : 'circle-outline'),
                     tooltip: isActive ? 'Deactivate Group' : 'Set as Active Group',
@@ -356,29 +359,36 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                         arguments: [element],
                         title: 'Create Sub-Group'
                     }
-                },
-                // 重命名按钮
-                {
-                    icon: new vscode.ThemeIcon('edit'),
-                    tooltip: 'Rename Group',
-                    command: {
-                        command: 'vscode-favorites.renameGroup',
-                        arguments: [element],
-                        title: 'Rename Group'
-                    }
-                },
-                // 删除按钮
-                {
-                    icon: new vscode.ThemeIcon('trash'),
-                    tooltip: 'Delete Group',
-                    command: {
-                        command: 'vscode-favorites.deleteGroup',
-                        arguments: [element],
-                        title: 'Delete Group'
-                    }
                 }
             ];
+
+            // 只为非默认分组添加重命名和删除按钮
+            if (element.name !== this.DEFAULT_GROUP) {
+                buttons.push(
+                    // 重命名按钮
+                    {
+                        icon: new vscode.ThemeIcon('edit'),
+                        tooltip: 'Rename Group',
+                        command: {
+                            command: 'vscode-favorites.renameGroup',
+                            arguments: [element],
+                            title: 'Rename Group'
+                        }
+                    },
+                    // 删除按钮
+                    {
+                        icon: new vscode.ThemeIcon('trash'),
+                        tooltip: 'Delete Group',
+                        command: {
+                            command: 'vscode-favorites.deleteGroup',
+                            arguments: [element],
+                            title: 'Delete Group'
+                        }
+                    }
+                );
+            }
             
+            treeItem.buttons = buttons;
             return treeItem;
         }
 
@@ -863,6 +873,12 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
     async renameGroup(groupElement: FavoriteItem) {
         if (groupElement && groupElement.isGroup) {
+            // 检查是否是默认分组
+            if (groupElement.name === this.DEFAULT_GROUP) {
+                vscode.window.showWarningMessage('Cannot rename default group');
+                return;
+            }
+
             const newName = await vscode.window.showInputBox({
                 prompt: 'Enter new group name',
                 value: groupElement.name,
@@ -886,7 +902,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                     groupItems.files.forEach(item => {
                         item.groupName = newName;
                     });
-                    // 保��并刷新视图
+                    // 保存并刷新视图
                     this.saveFavorites();
                     this._onDidChangeTreeData.fire();
                 }
@@ -1213,7 +1229,7 @@ export function activate(context: vscode.ExtensionContext) {
      * 建树视图
      * treeDataProvider: 提供树视图数据的对象
      * canSelectMany: 是否允许多选
-     * dragAndDropController: 处理拖放操作的控制器
+     * dragAndDropController: 处理放操作的控制器
      *   - dropMimeTypes: 可以接受的数据类型
      *   - dragMimeTypes: 可以提供的数据类型
      *   - handleDrag/handleDrop: 处拖放的回调函数

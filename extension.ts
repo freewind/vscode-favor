@@ -403,14 +403,21 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
         // 根据文件扩展名设置不同的图标
         const ext = path.extname(element.path).toLowerCase();
-        if (ext === '.ts') {
-            treeItem.iconPath = new vscode.ThemeIcon('symbol-type-parameter');
-        } else if (ext === '.tsx') {
-            treeItem.iconPath = new vscode.ThemeIcon('react');
-        } else {
-            treeItem.iconPath = new vscode.ThemeIcon('file');
-        }
+        const fileName = path.basename(element.path).toLowerCase();
 
+        if (fileName.endsWith('.test.ts') || fileName.endsWith('.spec.ts')) {
+            treeItem.iconPath = new vscode.ThemeIcon('beaker');  // 测试文件
+        } else if (ext === '.ts') {
+            treeItem.iconPath = new vscode.ThemeIcon('symbol-type-parameter');  // TypeScript 文件
+        } else if (ext === '.tsx') {
+            treeItem.iconPath = new vscode.ThemeIcon('react');  // React TypeScript 文件
+        } else if (ext === '.js') {
+            treeItem.iconPath = new vscode.ThemeIcon('symbol-method');  // JavaScript 文件
+        } else if (ext === '.jsx') {
+            treeItem.iconPath = new vscode.ThemeIcon('symbol-class');  // React JavaScript 文件
+        } else {
+            treeItem.iconPath = new vscode.ThemeIcon('file');  // 其他文件类型
+        }
 
         treeItem.contextValue = 'file';
 
@@ -1536,7 +1543,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (!groupElement || !groupElement.isGroup) return;
 
         try {
-            // 从剪贴板获取文本
+            // 从剪贴板获��文本
             const clipboardText = await vscode.env.clipboard.readText();
             if (!clipboardText.trim()) {
                 vscode.window.showWarningMessage('Clipboard is empty');

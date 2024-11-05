@@ -156,9 +156,8 @@ interface HistorySnapshot {
     timestamp: string;
 }
 
-// 1. 添加 SaveData 接口定义
+// 1. 修改 SaveData 接口
 interface SaveData {
-    favorites: Omit<FavoriteItem, 'groupName'>[]; // 移除 groupName
     groups: Record<string, {
         files: string[];  // 只存储文件路径
         parentGroup: string | null;
@@ -173,18 +172,23 @@ interface SaveData {
 class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<FavoriteItem | undefined | null | void>;
     readonly onDidChangeTreeData: vscode.Event<FavoriteItem | undefined | null | void>;
-    private favorites: Map<string, FavoriteItem>;
-    private groups: Map<string, GroupData>;
+    private groups: Map<string, GroupData>;  // 移除 favorites
     private view: vscode.TreeView<FavoriteItem> | null;
     private activeGroup: string | null;
     private history: HistorySnapshot[];
     private maxHistorySize: number;
+    private readonly DEFAULT_GROUP = 'default';  // 添加默认分组常量
 
     constructor(_context: vscode.ExtensionContext) {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
-        this.favorites = new Map();
         this.groups = new Map();
+        // 初始化默认分组
+        this.groups.set(this.DEFAULT_GROUP, {
+            files: new Map(),
+            subGroups: new Map(),
+            parentGroup: null
+        });
         this.view = null;
         this.activeGroup = null;
         this.history = [];
@@ -210,19 +214,12 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                 const content = fs.readFileSync(favorPath.fsPath, 'utf8');
                 const data = JSON.parse(content) as JsonData;
                 
-                // 加载默认分组的文件
-                const favorites = data.favorites || [];
-                favorites.forEach(item => {
-                    this.favorites.set(item.path, item);
-                });
-                
                 // 加载分组数据
                 const groups = data.groups || {};
                 Object.entries(groups).forEach(([groupName, group]) => {
                     const files = new Map<string, FavoriteItem>();
                     group.files?.forEach(filePath => {
                         if (typeof filePath === 'string') {
-                            // 从文件路径创建文件项
                             const item: FavoriteItem = {
                                 path: filePath,
                                 name: path.basename(filePath),
@@ -238,6 +235,15 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                         parentGroup: group.parentGroup || null
                     });
                 });
+
+                // 确保默认分组存在
+                if (!this.groups.has(this.DEFAULT_GROUP)) {
+                    this.groups.set(this.DEFAULT_GROUP, {
+                        files: new Map(),
+                        subGroups: new Map(),
+                        parentGroup: null
+                    });
+                }
 
                 this.activeGroup = data.activeGroup || null;
 
@@ -271,10 +277,6 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
             // 准备要保存的数据
             const data: SaveData = {
-                favorites: Array.from(this.favorites.values()).map(item => {
-                    const { groupName, ...rest } = item;
-                    return rest;
-                }),
                 groups: {},
                 activeGroup: this.activeGroup
             };
@@ -282,7 +284,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             // 转换分组数据
             this.groups.forEach((group, groupName) => {
                 data.groups[groupName] = {
-                    files: Array.from(group.files.keys()), // 只保存文件路径
+                    files: Array.from(group.files.keys()),
                     parentGroup: group.parentGroup
                 };
             });
@@ -438,17 +440,15 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
      */
     getChildren(element?: FavoriteItem): FavoriteItem[] {
         if (!element) {
-            // 根级别：显示默认收藏和顶级分组
-            const defaultItems = Array.from(this.favorites.values());
-            const topGroups = Array.from(this.groups.entries())
+            // 根级别：显示所有顶级分组（包括默认分组）
+            return Array.from(this.groups.entries())
                 .filter(([_, group]) => !group.parentGroup)
                 .map(([name]): FavoriteItem => ({
                     name,
-                    path: '', // 分组不需要实际路径
-                    type: 'folder',
+                    path: '',
+                    type: 'file',
                     isGroup: true
                 }));
-            return [...topGroups, ...defaultItems];
         }
         
         if (element.isGroup) {
@@ -496,14 +496,11 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                             type: 'file'  // 明确指定类型为 'file'
                         };
 
-                        if (this.activeGroup && this.groups.has(this.activeGroup)) {
-                            const group = this.groups.get(this.activeGroup);
-                            if (group) {
-                                favorite.groupName = this.activeGroup;
-                                group.files.set(filePath, favorite);
-                            }
-                        } else {
-                            this.favorites.set(filePath, favorite);
+                        // 添加到活动分组或默认分组
+                        const targetGroup = this.activeGroup || this.DEFAULT_GROUP;
+                        const group = this.groups.get(targetGroup);
+                        if (group) {
+                            group.files.set(filePath, favorite);
                         }
                     });
                 } catch (error) {
@@ -519,14 +516,11 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                     type: 'file'  // 明确指定类型为 'file'
                 };
 
-                if (this.activeGroup && this.groups.has(this.activeGroup)) {
-                    const group = this.groups.get(this.activeGroup);
-                    if (group) {
-                        favorite.groupName = this.activeGroup;
-                        group.files.set(uri.fsPath, favorite);
-                    }
-                } else {
-                    this.favorites.set(uri.fsPath, favorite);
+                // 添加到活动分组或默认分组
+                const targetGroup = this.activeGroup || this.DEFAULT_GROUP;
+                const group = this.groups.get(targetGroup);
+                if (group) {
+                    group.files.set(uri.fsPath, favorite);
                 }
             }
 
@@ -583,7 +577,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                 }
             }
         } else {
-            this.favorites.delete(item.path);
+            const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+            if (defaultGroup) {
+                defaultGroup.files.delete(item.path);
+            }
         }
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
@@ -791,7 +788,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                                 }
                             } else {
                                 console.log('Removing from default group');
-                                this.favorites.delete(source.path);
+                                const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+                                if (defaultGroup) {
+                                    defaultGroup.files.delete(source.path);
+                                }
                             }
                         }
 
@@ -832,7 +832,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                         }
                         
                         console.log('Adding to default group');
-                        this.favorites.set(source.path, newItem);
+                        const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+                        if (defaultGroup) {
+                            defaultGroup.files.set(source.path, newItem);
+                        }
                     }
                 }
             }
@@ -1009,13 +1012,12 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
                 if (targetGroupPath) {
                     const finalTargetGroup = targetGroupPath === '(Default Group)' ? 
-                        targetGroupPath : 
+                        this.DEFAULT_GROUP : 
                         targetGroupPath.split(' > ').pop() || '';
 
                     // 移动所有选中的项目
                     for (const item of selectedItems) {
-                        if (finalTargetGroup === '(Default Group)') {
-                            // 移动到认分组
+                        if (finalTargetGroup === this.DEFAULT_GROUP) {
                             if (item.groupName) {
                                 const group = this.groups.get(item.groupName);
                                 if (group) {
@@ -1023,16 +1025,22 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                                 }
                             }
                             delete item.groupName;
-                            this.favorites.set(item.path, item);
+                            const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+                            if (defaultGroup) {
+                                defaultGroup.files.set(item.path, item);
+                            }
                         } else {
-                            // 移动指定分组
                             if (item.groupName) {
                                 const group = this.groups.get(item.groupName);
                                 if (group) {
                                     group.files.delete(item.path);
                                 }
                             } else {
-                                this.favorites.delete(item.path);
+                                // 从默认分组中删除
+                                const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+                                if (defaultGroup) {
+                                    defaultGroup.files.delete(item.path);
+                                }
                             }
                             item.groupName = finalTargetGroup;
                             if (!this.groups.has(finalTargetGroup)) {
@@ -1083,7 +1091,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                         const newItem = { ...item };
                         if (finalTargetGroup === '(Default Group)') {
                             delete newItem.groupName;
-                            this.favorites.set(newItem.path, newItem);
+                            const defaultGroup = this.groups.get(this.DEFAULT_GROUP);
+                            if (defaultGroup) {
+                                defaultGroup.files.set(newItem.path, newItem);
+                            }
                         } else {
                             newItem.groupName = finalTargetGroup;
                             // 确保目标分组存在且有正确的数据结构
@@ -1107,15 +1118,17 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
     async removeAll() {
         this.saveToHistory('removeAll', {});
-        // 检查是否有何收藏
-        if (this.favorites.size === 0 && this.groups.size === 0) {
+        // 检查是否有任何收藏
+        const hasFiles = Array.from(this.groups.values()).some(group => group.files.size > 0);
+        if (!hasFiles) {
             vscode.window.showInformationMessage('No favorites to remove.');
             return;
         }
 
-        // 直接清空所有收藏
-        this.favorites.clear();
-        this.groups.clear();
+        // 清空所有分组的文件
+        this.groups.forEach(group => {
+            group.files.clear();
+        });
         this.saveFavorites();
         this._onDidChangeTreeData.fire();
     }
@@ -1136,7 +1149,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
         const snapshot: HistorySnapshot = {
             type,
             data,
-            favorites: new Map(this.favorites),
+            favorites: this.groups.get(this.DEFAULT_GROUP)?.files || new Map(),
             groups: new Map(this.groups),
             activeGroup: this.activeGroup,
             timestamp: new Date().toISOString()
@@ -1160,7 +1173,14 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
         const lastOperation = this.history[this.history.length - 1];
         if (!lastOperation) return;
         
-        this.favorites = new Map(lastOperation.favorites);
+        const defaultGroup = lastOperation.favorites;
+        if (defaultGroup) {
+            this.groups.set(this.DEFAULT_GROUP, {
+                files: new Map(defaultGroup),
+                subGroups: new Map(),
+                parentGroup: null
+            });
+        }
         this.groups = new Map(lastOperation.groups);
         this.activeGroup = lastOperation.activeGroup;
         
@@ -1221,7 +1241,7 @@ export function activate(context: vscode.ExtensionContext) {
             // 如果提供了个 URI，添加所有文件
             uris.forEach((uri: vscode.Uri) => favoritesProvider.addFavorite(uri));
         } else if (uri) {
-            // 如果只提供了一个 URI，添加单个文件
+            // 如果只���供了一个 URI，添加单个文件
             favoritesProvider.addFavorite(uri);
         } else {
             // 如果没有提供 URI，使用当前活动编辑器
@@ -1350,7 +1370,7 @@ export function activate(context: vscode.ExtensionContext) {
                     targetGroup = newGroupName;
                 }
 
-                // 添加所有文件到目标分组
+                // 添加有文件到目标分组
                 for (const uri of urisToAdd) {
                     await favoritesProvider.addToGroup(uri, targetGroup);
                 }
@@ -1374,7 +1394,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 注册添加新分组的命令
     let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
-        // 从右上角按钮调用，传入 undefined 而不是 null
+        // 从右上角按钮调用，传入 undefined ��不是 null
         await favoritesProvider.addNewGroup(undefined);
     });
 
@@ -1392,7 +1412,7 @@ export function activate(context: vscode.ExtensionContext) {
         await favoritesProvider.addNewGroup(parentGroup);
     });
 
-    // 注册删除所有收藏命令
+    // 注册删除所有收��命令
     let removeAll = vscode.commands.registerCommand('vscode-favorites.removeAll', async () => {
         await favoritesProvider.removeAll();
     });
@@ -1402,7 +1422,7 @@ export function activate(context: vscode.ExtensionContext) {
         favoritesProvider.setActiveGroup(groupElement.name);
     });
 
-    // 注册取消激活分组的命令
+    // 注取消激活分组的命令
     let deactivateGroup = vscode.commands.registerCommand('vscode-favorites.deactivateGroup', async () => {
         favoritesProvider.setActiveGroup(null);
     });

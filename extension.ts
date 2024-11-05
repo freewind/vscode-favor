@@ -158,9 +158,9 @@ interface HistorySnapshot {
 
 // 1. 添加 SaveData 接口定义
 interface SaveData {
-    favorites: FavoriteItem[];
+    favorites: Omit<FavoriteItem, 'groupName'>[]; // 移除 groupName
     groups: Record<string, {
-        files: FavoriteItem[];
+        files: string[];  // 只存储文件路径
         parentGroup: string | null;
     }>;
     activeGroup: string | null;
@@ -216,11 +216,24 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                     this.favorites.set(item.path, item);
                 });
                 
-                // 加载分组数据 - 简化的数据结构
+                // 加载分组数据
                 const groups = data.groups || {};
                 Object.entries(groups).forEach(([groupName, group]) => {
+                    const files = new Map<string, FavoriteItem>();
+                    group.files?.forEach(filePath => {
+                        if (typeof filePath === 'string') {
+                            // 从文件路径创建文件项
+                            const item: FavoriteItem = {
+                                path: filePath,
+                                name: path.basename(filePath),
+                                type: 'file'
+                            };
+                            files.set(filePath, item);
+                        }
+                    });
+
                     this.groups.set(groupName, {
-                        files: new Map(group.files?.map(item => [item.path, item]) || []),
+                        files,
                         subGroups: new Map(),
                         parentGroup: group.parentGroup || null
                     });
@@ -258,15 +271,18 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
             // 准备要保存的数据
             const data: SaveData = {
-                favorites: Array.from(this.favorites.values()),
+                favorites: Array.from(this.favorites.values()).map(item => {
+                    const { groupName, ...rest } = item;
+                    return rest;
+                }),
                 groups: {},
                 activeGroup: this.activeGroup
             };
 
-            // 转��分组数据
+            // 转换分组数据
             this.groups.forEach((group, groupName) => {
                 data.groups[groupName] = {
-                    files: Array.from(group.files.values()),
+                    files: Array.from(group.files.keys()), // 只保存文件路径
                     parentGroup: group.parentGroup
                 };
             });
@@ -1162,7 +1178,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
 /**
  * VS Code 扩展的激活函数
- * 当展被激活时（比如第一次使用相关命���时），VS Code 会调用这个函数
+ * 当展被激活时（比如第一次使用相关命时），VS Code 会调用这个函数
  * @param {vscode.ExtensionContext} context - VS Code 提供的扩展上下文
  */
 export function activate(context: vscode.ExtensionContext) {

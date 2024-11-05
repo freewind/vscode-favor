@@ -209,7 +209,7 @@
                 {
                     "command": "vscode-favorites.addFilesFromClipboard",
                     "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup || viewItem == defaultGroup || viewItem == defaultGroupActive)",
-                    "group": "0_generate@2"
+                    "group": "0_clipboard@1"
                 },
                 {
                     "command": "vscode-favorites.moveToGroup",

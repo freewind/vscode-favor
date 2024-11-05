@@ -141,7 +141,6 @@ interface JsonGroupData {
 }
 
 interface JsonData {
-    favorites: FavoriteItem[];
     groups: Record<string, JsonGroupData>;
     activeGroup: string | null;
 }

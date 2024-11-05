@@ -451,15 +451,23 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
     getChildren(element?: FavoriteItem): FavoriteItem[] {
         if (!element) {
             // 根级别：显示所有顶级分组（包括默认分组）
-            return Array.from(this.groups.entries())
+            const groups = Array.from(this.groups.entries())
                 .filter(([_, group]) => !group.parentGroup)
                 .map(([name]): FavoriteItem => ({
                     name,
                     path: '',
                     type: 'file',
                     isGroup: true
-                }))
-                .sort((a, b) => a.name.localeCompare(b.name));  // 对分组按名称排序
+                }));
+
+            // 将分组分成默认分组和其他分组
+            const defaultGroup = groups.find(g => g.name === this.DEFAULT_GROUP);
+            const otherGroups = groups
+                .filter(g => g.name !== this.DEFAULT_GROUP)
+                .sort((a, b) => a.name.localeCompare(b.name));  // 其他分组按名称排序
+
+            // 确保默认分组在第一位
+            return defaultGroup ? [defaultGroup, ...otherGroups] : otherGroups;
         }
         
         if (element.isGroup) {

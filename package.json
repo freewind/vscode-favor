@@ -196,11 +196,7 @@
                     "when": "view == favoritesList && viewItem == file",
                     "group": "1_modification@2"
                 },
-                {
-                    "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList && viewItem == file",
-                    "group": "1_modification@3"
-                },
+                
                 {
                     "command": "vscode-favorites.generateFileForAI",
                     "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup || viewItem == defaultGroup || viewItem == defaultGroupActive || viewItem == file)",

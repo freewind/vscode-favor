@@ -121,11 +121,6 @@
                     "args": {
                         "multiple": true
                     }
-                },
-                {
-                    "command": "vscode-favorites.addToFavorites",
-                    "when": "resourceExtname =~ /\\.(js|jsx|ts|tsx)$/",
-                    "group": "navigation"
                 }
             ],
             "editor/context": [

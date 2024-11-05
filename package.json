@@ -105,7 +105,7 @@
             },
             {
                 "command": "vscode-favorites.generateFileForAI",
-                "title": "$(notebook) Generate File for AI",
+                "title": "🤖 Generate File for AI",
                 "icon": "$(notebook)"
             }
         ],

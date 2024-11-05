@@ -1,2 +1,2 @@
 *.vsix
-./out
+/out/

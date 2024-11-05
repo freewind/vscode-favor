@@ -14,6 +14,9 @@ devDependencies:
   '@vscode/vsce':
     specifier: ^2.22.0
     version: 2.32.0
+  typescript:
+    specifier: ^5.2.2
+    version: 5.2.2
 
 packages:
 
@@ -1211,6 +1214,12 @@ packages:
       qs: 6.13.0
       tunnel: 0.0.6
       underscore: 1.13.7
+    dev: true
+
+  /typescript@5.2.2:
+    resolution: {integrity: sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==}
+    engines: {node: '>=14.17'}
+    hasBin: true
     dev: true
 
   /uc.micro@1.0.6:

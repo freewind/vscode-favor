@@ -96,12 +96,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// 删除之前的 require 语句
-// const vscode = require('vscode');
-// const path = require('path');
-// const fs = require('fs');
-
-// 删除 declare module 'vscode'
 type TreeItemWithButtons = vscode.TreeItem & {
     buttons?: {
         icon: vscode.ThemeIcon;
@@ -148,7 +142,7 @@ interface JsonGroupData {
 
 interface JsonData {
     favorites: FavoriteItem[];
-    groups: { [key: string]: JsonGroupData };
+    groups: Record<string, JsonGroupData>;
     activeGroup: string | null;
 }
 
@@ -162,6 +156,16 @@ interface HistorySnapshot {
     timestamp: string;
 }
 
+// 1. 添加 SaveData 接口定义
+interface SaveData {
+    favorites: FavoriteItem[];
+    groups: Record<string, {
+        files: FavoriteItem[];
+        parentGroup: string | null;
+    }>;
+    activeGroup: string | null;
+}
+
 /**
  * FavoritesProvider 类实现了 VS Code 的 TreeDataProvider 接口
  * 用于在侧边栏显示树形结构的收藏夹视图
@@ -171,18 +175,16 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
     readonly onDidChangeTreeData: vscode.Event<FavoriteItem | undefined | null | void>;
     private favorites: Map<string, FavoriteItem>;
     private groups: Map<string, GroupData>;
-    private context: vscode.ExtensionContext;
     private view: vscode.TreeView<FavoriteItem> | null;
     private activeGroup: string | null;
     private history: HistorySnapshot[];
     private maxHistorySize: number;
 
-    constructor(context: vscode.ExtensionContext) {
+    constructor(_context: vscode.ExtensionContext) {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.favorites = new Map();
         this.groups = new Map();
-        this.context = context;
         this.view = null;
         this.activeGroup = null;
         this.history = [];
@@ -254,14 +256,14 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                 fs.mkdirSync(vscodePath.fsPath, { recursive: true });
             }
 
-            // 准备要保存的数据 - 简化的数据结构
-            const data = {
+            // 准备要保存的数据
+            const data: SaveData = {
                 favorites: Array.from(this.favorites.values()),
                 groups: {},
                 activeGroup: this.activeGroup
             };
 
-            // 转换分组数据
+            // 转��分组数据
             this.groups.forEach((group, groupName) => {
                 data.groups[groupName] = {
                     files: Array.from(group.files.values()),
@@ -273,8 +275,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             console.log('Favorites saved to:', favorPath.fsPath);
 
         } catch (error) {
-            console.error('Error saving favorites:', error);
-            vscode.window.showErrorMessage(`Failed to save favorites: ${error.message}`);
+            if (error instanceof Error) {
+                console.error('Error saving favorites:', error);
+                vscode.window.showErrorMessage(`Failed to save favorites: ${error.message}`);
+            }
         }
     }
 
@@ -460,55 +464,64 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
     }
 
     async addFavorite(uri: vscode.Uri) {
-        this.saveToHistory('add', { path: uri.fsPath });
-        const stat = fs.statSync(uri.fsPath);
-        
-        if (stat.isDirectory()) {
-            try {
-                const files = await this.getAllFilesInDirectory(uri.fsPath);
-                console.log('\n### > Found files in directory:', files);
-                
-                files.forEach(filePath => {
-                    const favorite: FavoriteItem = {
-                        path: filePath,
-                        name: path.basename(filePath),
-                        type: 'file'  // 明确指定类型为 'file'
-                    };
+        try {
+            this.saveToHistory('add', { path: uri.fsPath });
+            const stat = fs.statSync(uri.fsPath);
+            
+            if (stat.isDirectory()) {
+                try {
+                    const files = await this.getAllFilesInDirectory(uri.fsPath);
+                    console.log('\n### > Found files in directory:', files);
+                    
+                    files.forEach(filePath => {
+                        const favorite: FavoriteItem = {
+                            path: filePath,
+                            name: path.basename(filePath),
+                            type: 'file'  // 明确指定类型为 'file'
+                        };
 
-                    if (this.activeGroup && this.groups.has(this.activeGroup)) {
-                        const group = this.groups.get(this.activeGroup);
-                        if (group) {
-                            favorite.groupName = this.activeGroup;
-                            group.files.set(filePath, favorite);
+                        if (this.activeGroup && this.groups.has(this.activeGroup)) {
+                            const group = this.groups.get(this.activeGroup);
+                            if (group) {
+                                favorite.groupName = this.activeGroup;
+                                group.files.set(filePath, favorite);
+                            }
+                        } else {
+                            this.favorites.set(filePath, favorite);
                         }
-                    } else {
-                        this.favorites.set(filePath, favorite);
+                    });
+                } catch (error) {
+                    if (error instanceof Error) {
+                        console.error('Error reading directory:', error);
+                        vscode.window.showErrorMessage(`Failed to add directory: ${error.message}`);
                     }
-                });
-            } catch (error) {
+                }
+            } else {
+                const favorite: FavoriteItem = {
+                    path: uri.fsPath,
+                    name: path.basename(uri.fsPath),
+                    type: 'file'  // 明确指定类型为 'file'
+                };
+
+                if (this.activeGroup && this.groups.has(this.activeGroup)) {
+                    const group = this.groups.get(this.activeGroup);
+                    if (group) {
+                        favorite.groupName = this.activeGroup;
+                        group.files.set(uri.fsPath, favorite);
+                    }
+                } else {
+                    this.favorites.set(uri.fsPath, favorite);
+                }
+            }
+
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+        } catch (error) {
+            if (error instanceof Error) {
                 console.error('Error reading directory:', error);
                 vscode.window.showErrorMessage(`Failed to add directory: ${error.message}`);
             }
-        } else {
-            const favorite: FavoriteItem = {
-                path: uri.fsPath,
-                name: path.basename(uri.fsPath),
-                type: 'file'  // 明确指定类型为 'file'
-            };
-
-            if (this.activeGroup && this.groups.has(this.activeGroup)) {
-                const group = this.groups.get(this.activeGroup);
-                if (group) {
-                    favorite.groupName = this.activeGroup;
-                    group.files.set(uri.fsPath, favorite);
-                }
-            } else {
-                this.favorites.set(uri.fsPath, favorite);
-            }
         }
-
-        this.saveFavorites();
-        this._onDidChangeTreeData.fire();
     }
 
     /**
@@ -711,17 +724,20 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             dataTransfer.set('vscode-drag-effect', new vscode.DataTransferItem(dragData.isCopy ? 'copy' : 'move'));
             console.log('Set drag effect:', dragData.isCopy ? 'copy' : 'move');
         } catch (error) {
-            console.error('Error in handleDrag:', error);
-            console.error('Error details:', {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
-            });
+            if (error instanceof Error) {
+                console.error('Error in handleDrag:', error);
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+            }
         }
         console.log('=== handleDrag End ===\n');
     }
 
-    async handleDrop(target: FavoriteItem, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) {
+    async handleDrop(target: FavoriteItem | undefined, dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken) {
+        if (!target) return;
         console.log('\n=== handleDrop Start ===');
         console.log('Target:', JSON.stringify(target, null, 2));
         
@@ -810,12 +826,14 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             console.log('Operation completed successfully');
             
         } catch (error) {
-            console.error('Error in handleDrop:', error);
-            console.error('Error details:', {
-                name: error.name,
-                message: error.message,
-                stack: error.stack
-            });
+            if (error instanceof Error) {
+                console.error('Error in handleDrop:', error);
+                console.error('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+            }
         }
         console.log('=== handleDrop End ===\n');
     }
@@ -871,14 +889,12 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                 }
 
                 // 递归删除所有子分组
-                const deleteSubGroups = (subGroups) => {
+                const deleteSubGroups = (subGroups: Map<string, boolean>) => {
                     if (!subGroups) return;
                     for (const [subGroupName] of subGroups) {
                         const subGroup = this.groups.get(subGroupName);
                         if (subGroup) {
-                            // 递归删除子分组的子组
                             deleteSubGroups(subGroup.subGroups);
-                            // 删除子分组
                             this.groups.delete(subGroupName);
                         }
                     }
@@ -956,22 +972,22 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
     async moveToGroup(item: FavoriteItem, targetGroup?: string): Promise<void> {
         if (!targetGroup) {
-            const view = this.view;
-            if (!view) return;
-
             const selectedItems = item ? 
-                [item, ...view.selection.filter(i => i !== item)] : 
-                view.selection;
+                [item, ...this.view!.selection.filter(i => i !== item)] : 
+                this.view!.selection;
 
             if (selectedItems && selectedItems.length > 0) {
-                const groups = this.getAllGroupsWithPath();
-                const currentGroup = selectedItems[0].groupName || '';
+                const firstItem = selectedItems[0];
+                if (!firstItem) return;
+
+                const currentGroup = firstItem.groupName || '';
                 const allSameGroup = selectedItems.every(item => item.groupName === currentGroup);
-                const availableGroups = allSameGroup && currentGroup ? 
-                    groups.filter(g => !g.endsWith(currentGroup)) : 
-                    groups;
+                const availableGroups = this.getAllGroupsWithPath();
+                const filteredGroups = allSameGroup && currentGroup ? 
+                    availableGroups.filter(g => !g.endsWith(currentGroup)) : 
+                    availableGroups;
                 
-                const targetGroupPath = await vscode.window.showQuickPick(availableGroups, {
+                const targetGroupPath = await vscode.window.showQuickPick(filteredGroups, {
                     placeHolder: 'Select target group'
                 });
 
@@ -1022,22 +1038,22 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
     async copyToGroup(item: FavoriteItem, targetGroup?: string): Promise<void> {
         if (!targetGroup) {
-            const view = this.view;
-            if (!view) return;
-
             const selectedItems = item ? 
-                [item, ...view.selection.filter(i => i !== item)] : 
-                view.selection;
+                [item, ...this.view!.selection.filter(i => i !== item)] : 
+                this.view!.selection;
 
             if (selectedItems && selectedItems.length > 0) {
-                const groups = this.getAllGroupsWithPath();
-                const currentGroup = selectedItems[0].groupName;
+                const firstItem = selectedItems[0];
+                if (!firstItem) return;
+
+                const currentGroup = firstItem.groupName;
                 const allSameGroup = selectedItems.every(item => item.groupName === currentGroup);
-                const availableGroups = allSameGroup && currentGroup ? 
-                    groups.filter(g => !g.endsWith(currentGroup)) : 
-                    groups;
+                const availableGroups = this.getAllGroupsWithPath();
+                const filteredGroups = allSameGroup && currentGroup ? 
+                    availableGroups.filter(g => !g.endsWith(currentGroup)) : 
+                    availableGroups;
                 
-                const targetGroupPath = await vscode.window.showQuickPick(availableGroups, {
+                const targetGroupPath = await vscode.window.showQuickPick(filteredGroups, {
                     placeHolder: 'Select target group'
                 });
 
@@ -1126,8 +1142,8 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
         }
 
         const lastOperation = this.history[this.history.length - 1];
+        if (!lastOperation) return;
         
-        // 直接执行撤销，不再显示确认对话框
         this.favorites = new Map(lastOperation.favorites);
         this.groups = new Map(lastOperation.groups);
         this.activeGroup = lastOperation.activeGroup;
@@ -1146,7 +1162,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
 /**
  * VS Code 扩展的激活函数
- * 当展被激活时（比如第一次使用相关命令时），VS Code 会调用这个函数
+ * 当展被激活时（比如第一次使用相关命���时），VS Code 会调用这个函数
  * @param {vscode.ExtensionContext} context - VS Code 提供的扩展上下文
  */
 export function activate(context: vscode.ExtensionContext) {
@@ -1154,7 +1170,7 @@ export function activate(context: vscode.ExtensionContext) {
     const favoritesProvider = new FavoritesProvider(context);
     
     /**
-     * 创建树视图
+     * 建树视图
      * treeDataProvider: 提供树视图数据的对象
      * canSelectMany: 是否允许多选
      * dragAndDropController: 处理拖放操作的控制器
@@ -1168,8 +1184,10 @@ export function activate(context: vscode.ExtensionContext) {
         dragAndDropController: {
             dropMimeTypes: ['application/vnd.code.tree.favoritesList'],
             dragMimeTypes: ['application/vnd.code.tree.favoritesList'],
-            handleDrag: (items, dataTransfer, token) => favoritesProvider.handleDrag(items, dataTransfer, token),
-            handleDrop: (target, dataTransfer, token) => favoritesProvider.handleDrop(target, dataTransfer, token)
+            handleDrag: (items: readonly FavoriteItem[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) => 
+                favoritesProvider.handleDrag([...items], dataTransfer, token),  // 转换为可变数组
+            handleDrop: (target: FavoriteItem | undefined, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) => 
+                favoritesProvider.handleDrop(target, dataTransfer, token)  // 移除 || null
         }
     });
     
@@ -1185,7 +1203,7 @@ export function activate(context: vscode.ExtensionContext) {
     let addToFavorites = vscode.commands.registerCommand('vscode-favorites.addToFavorites', async (uri, uris) => {
         if (uris) {
             // 如果提供了个 URI，添加所有文件
-            uris.forEach(uri => favoritesProvider.addFavorite(uri));
+            uris.forEach((uri: vscode.Uri) => favoritesProvider.addFavorite(uri));
         } else if (uri) {
             // 如果只提供了一个 URI，添加单个文件
             favoritesProvider.addFavorite(uri);
@@ -1375,17 +1393,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 注册打开数据文件的命令
     let openDataFile = vscode.commands.registerCommand('vscode-favorites.openDataFile', async () => {
-        // 获取当前工作区的第一个根目录
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) {
-            vscode.window.showErrorMessage('No workspace folder found');
-            return;
-        }
-
-        // 构建数据文件路径
-        const favorPath = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode', 'favor.json');
-
         try {
+            // 获取当前工作区的第一个根目录
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            // 构建数据文件路径
+            const favorPath = vscode.Uri.joinPath(workspaceFolder.uri, '.vscode', 'favor.json');
+
             // 确保文件存在
             if (!fs.existsSync(favorPath.fsPath)) {
                 // 如果文件不存在，创建一个空的数据文件
@@ -1400,8 +1418,10 @@ export function activate(context: vscode.ExtensionContext) {
             // 打开文件
             await vscode.commands.executeCommand('vscode.open', favorPath);
         } catch (error) {
-            console.error('Error opening data file:', error);
-            vscode.window.showErrorMessage(`Failed to open data file: ${error.message}`);
+            if (error instanceof Error) {
+                console.error('Error opening data file:', error);
+                vscode.window.showErrorMessage(`Failed to open data file: ${error.message}`);
+            }
         }
     });
 

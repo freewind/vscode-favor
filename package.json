@@ -112,6 +112,11 @@
                 "command": "vscode-favorites.addFilesFromClipboard",
                 "title": "📋 Add Files from Clipboard",
                 "icon": "$(clippy)"
+            },
+            {
+                "command": "vscode-favorites.copyAllPaths",
+                "title": "📋 Copy All Paths",
+                "icon": "$(copy)"
             }
         ],
         "menus": {
@@ -221,6 +226,11 @@
                     "command": "vscode-favorites.removeFromFavorites",
                     "when": "view == favoritesList && viewItem == file",
                     "group": "2_deletion@1"
+                },
+                {
+                    "command": "vscode-favorites.copyAllPaths",
+                    "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup || viewItem == defaultGroup || viewItem == defaultGroupActive || viewItem == file)",
+                    "group": "0_clipboard@2"
                 }
             ],
             "view/title": [

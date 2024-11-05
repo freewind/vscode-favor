@@ -1253,6 +1253,38 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             vscode.window.showErrorMessage(`Failed to add any files. ${errorCount} error(s) occurred`);
         }
     }
+
+    // 在 FavoritesProvider 类中添加新方法
+    async getAllPaths(item: FavoriteItem): Promise<string[]> {
+        const paths: string[] = [];
+        
+        if (item.isGroup) {
+            // 如果是分组，递归获取所有文件路径
+            const group = this.groups.get(item.name);
+            if (group) {
+                // 添加当前分组的文件
+                paths.push(...Array.from(group.files.keys()));
+                
+                // 递归获取子分组的文件
+                for (const [subGroupName] of group.subGroups) {
+                    const subGroup = this.groups.get(subGroupName);
+                    if (subGroup) {
+                        const subPaths = await this.getAllPaths({
+                            name: subGroupName,
+                            path: '',
+                            isGroup: true
+                        });
+                        paths.push(...subPaths);
+                    }
+                }
+            }
+        } else {
+            // 如果是文件，直接添加路径
+            paths.push(item.path);
+        }
+        
+        return paths;
+    }
 }
 
 /**
@@ -1645,6 +1677,42 @@ Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}
         }
     });
 
+    // 在 undo 命令之后添加
+    let copyAllPaths = vscode.commands.registerCommand('vscode-favorites.copyAllPaths', async (item: FavoriteItem) => {
+        try {
+            // 获取所有选中的项目
+            const selectedItems = item ?
+                [item, ...treeView.selection.filter(i => i !== item)] :
+                treeView.selection;
+
+            if (!selectedItems || selectedItems.length === 0) {
+                return;
+            }
+
+            // 收集所有路径
+            const allPaths: string[] = [];
+            for (const item of selectedItems) {
+                const paths = await favoritesProvider.getAllPaths(item);
+                allPaths.push(...paths);
+            }
+
+            // 去重并排序
+            const uniquePaths = [...new Set(allPaths)].sort();
+
+            // 复制到剪贴板
+            if (uniquePaths.length > 0) {
+                await vscode.env.clipboard.writeText(uniquePaths.join('\n'));
+                vscode.window.showInformationMessage(`已复制 ${uniquePaths.length} 个文件路径到剪贴板`);
+            } else {
+                vscode.window.showInformationMessage('没有找到可复制的文件路径');
+            }
+        } catch (error) {
+            if (error instanceof Error) {
+                vscode.window.showErrorMessage(`复制路径失败: ${error.message}`);
+            }
+        }
+    });
+
     /**
      * 将所有注册的命令和视图添加到订阅列表
      * 这样在扩展停用时，VS Code 会自动清理这些资源
@@ -1670,7 +1738,8 @@ Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}
         openDataFile,
         undo,
         addFilesFromClipboard,
-        generateFileForAI
+        generateFileForAI,
+        copyAllPaths
     );
 }
 

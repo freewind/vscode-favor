@@ -482,8 +482,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
                     groupName: element.name,
                     contextValue: 'file'
                 }))
-                .sort((a, b) => a.name.localeCompare(b.name));  // 对文件按名称排序
-
+                .sort((a, b) => a.path.localeCompare(b.path));  // 这里是文件排序的逻辑
             return [...subGroups, ...files];  // 先显示分组，再显示文件
         }
 
@@ -1266,7 +1265,7 @@ export function activate(context: vscode.ExtensionContext) {
     /**
      * 注册从收藏夹移除的命令
      * item: 要移除的项目
-     * 如果是从按钮点击，只移除该项
+     * 如果是从按钮点击，只移除该���
      * 如果是从右键菜单，处理所有选中项
      */
     let removeFromFavorites = vscode.commands.registerCommand('vscode-favorites.removeFromFavorites', async (item) => {
@@ -1399,7 +1398,7 @@ export function activate(context: vscode.ExtensionContext) {
         await favoritesProvider.deleteGroup(groupElement);
     });
 
-    // 注册添加新分组的���令
+    // 注册添加新分组的令
     let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
         // 从右上角按钮调用，传入 undefined 不是 null
         await favoritesProvider.addNewGroup(undefined);

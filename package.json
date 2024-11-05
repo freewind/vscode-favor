@@ -10,8 +10,11 @@
     "categories": [
         "Other"
     ],
-    "activationEvents": [],
-    "main": "./extension.js",
+    "activationEvents": [
+        "onCommand:vscode-favorites.addToFavorites",
+        "onView:favoritesList"
+    ],
+    "main": "./extension.ts",
     "contributes": {
         "commands": [
             {
@@ -118,6 +121,11 @@
                     "args": {
                         "multiple": true
                     }
+                },
+                {
+                    "command": "vscode-favorites.addToFavorites",
+                    "when": "resourceExtname =~ /\\.(js|jsx|ts|tsx)$/",
+                    "group": "navigation"
                 }
             ],
             "editor/context": [
@@ -210,6 +218,18 @@
                     "when": "view == favoritesList",
                     "group": "navigation@4"
                 }
+            ],
+            "editor/title/context": [
+                {
+                    "command": "vscode-favorites.addToFavorites",
+                    "group": "9_favorites@1",
+                    "when": "resourceLangId"
+                },
+                {
+                    "command": "vscode-favorites.addToGroup",
+                    "group": "9_favorites@2",
+                    "when": "resourceLangId"
+                }
             ]
         },
         "views": {
@@ -219,9 +239,16 @@
                     "name": "Favorites",
                     "canSelectMany": true,
                     "dragAndDropController": {
-                        "supportedTypes": ["file", "group"],
-                        "dropMimeTypes": ["application/vnd.code.tree.favoritesList"],
-                        "dragMimeTypes": ["application/vnd.code.tree.favoritesList"]
+                        "supportedTypes": [
+                            "file",
+                            "group"
+                        ],
+                        "dropMimeTypes": [
+                            "application/vnd.code.tree.favoritesList"
+                        ],
+                        "dragMimeTypes": [
+                            "application/vnd.code.tree.favoritesList"
+                        ]
                     }
                 }
             ]
@@ -229,6 +256,7 @@
     },
     "packageManager": "pnpm@8.6.12+sha512.1336b80b948efd7979218a33ba96d9e4d380e6578144f6319979977deec6e3fe2e0a444b864b3ce2b077dda8adc4d654fee32b9c31868f0acb92da0abcf8ea1c",
     "devDependencies": {
+        "@types/node": "^22.9.0",
         "@types/vscode": "^1.80.0",
         "@vscode/vsce": "^2.22.0"
     },

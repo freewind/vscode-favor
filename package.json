@@ -291,7 +291,8 @@
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "test": "echo \"Error: no test specified\" && exit 1",
-        "package": "vsce package"
+        "package": "vsce package",
+        "prepackage": "pnpm compile"
     },
     "repository": {
         "type": "git",

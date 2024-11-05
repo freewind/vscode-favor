@@ -1208,6 +1208,62 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
     public getGroup(groupName: string): GroupData | undefined {
         return this.groups.get(groupName);
     }
+
+    /**
+     * 从文本中添加文件到指定分组
+     * @param groupName 目标分组名称
+     * @param text 包含文件路径的文本，每行一个路径
+     */
+    async addFilesFromText(groupName: string, text: string) {
+        const paths = text
+            .split('\n')
+            .filter(line => line.trim() && !line.trim().startsWith('#'))
+            .map(line => line.trim());
+
+        let addedCount = 0;
+        let errorCount = 0;
+
+        for (const filePath of paths) {
+            try {
+                const uri = vscode.Uri.file(filePath);
+                const stat = await vscode.workspace.fs.stat(uri);
+                
+                if (stat.type === vscode.FileType.File) {
+                    const favorite: FavoriteItem = {
+                        path: filePath,
+                        name: path.basename(filePath),
+                        groupName: groupName
+                    };
+
+                    const group = this.groups.get(groupName);
+                    if (group) {
+                        group.files.set(filePath, favorite);
+                        addedCount++;
+                    }
+                } else {
+                    errorCount++;
+                    console.log(`Path is not a file: ${filePath}`);
+                }
+            } catch (error) {
+                errorCount++;
+                console.log(`Error processing file ${filePath}:`, error);
+            }
+        }
+
+        if (addedCount > 0) {
+            this.saveFavorites();
+            this._onDidChangeTreeData.fire();
+        }
+
+        // 显示结果消息
+        if (addedCount > 0 && errorCount === 0) {
+            vscode.window.showInformationMessage(`Successfully added ${addedCount} file(s)`);
+        } else if (addedCount > 0 && errorCount > 0) {
+            vscode.window.showWarningMessage(`Added ${addedCount} file(s), ${errorCount} failed`);
+        } else if (addedCount === 0 && errorCount > 0) {
+            vscode.window.showErrorMessage(`Failed to add any files. ${errorCount} error(s) occurred`);
+        }
+    }
 }
 
 /**
@@ -1404,7 +1460,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 注册添加分组的命令
     let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
-        // 从右上角��钮调用，传入 undefined 不是 null
+        // 从右上角按钮调用，传入 undefined 不是 null
         await favoritesProvider.addNewGroup(undefined);
     });
 
@@ -1476,6 +1532,56 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // 在其他命令注册之后，undo 命令之前添加
+    let addFilesFromClipboard = vscode.commands.registerCommand('vscode-favorites.addFilesFromClipboard', async (groupElement: FavoriteItem) => {
+        if (!groupElement || !groupElement.isGroup) return;
+
+        try {
+            // 从剪贴板获取文本
+            const clipboardText = await vscode.env.clipboard.readText();
+            if (!clipboardText.trim()) {
+                vscode.window.showWarningMessage('Clipboard is empty');
+                return;
+            }
+
+            // 解析文件路径
+            const paths = clipboardText
+                .split('\n')
+                .filter(line => line.trim() && !line.trim().startsWith('#'))
+                .map(line => line.trim());
+
+            if (paths.length === 0) {
+                vscode.window.showWarningMessage('No valid file paths found in clipboard');
+                return;
+            }
+
+            // 创建确认消息
+            const message = paths.length === 1 
+                ? `Add this file to group "${groupElement.name}"?`
+                : `Add these ${paths.length} files to group "${groupElement.name}"?`;
+
+            // 创建详细信息，只显示前5个文件
+            const detail = paths.length > 5
+                ? paths.slice(0, 5).join('\n') + `\n\n... and ${paths.length - 5} more files`
+                : paths.join('\n');
+
+            // 显示确认对话框
+            const result = await vscode.window.showInformationMessage(
+                message,
+                { detail, modal: true },
+                'Yes', 'No'
+            );
+
+            if (result === 'Yes') {
+                // 用户确认后，处理文件路径
+                await favoritesProvider.addFilesFromText(groupElement.name, clipboardText);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage('Failed to read from clipboard');
+            console.error('Clipboard error:', error);
+        }
+    });
+
+    // 在 undo 命令之后添加
     let generateFileForAI = vscode.commands.registerCommand('vscode-favorites.generateFileForAI', async (item: FavoriteItem) => {
         try {
             let groupName: string;
@@ -1574,6 +1680,7 @@ Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}
         deactivateGroup,
         openDataFile,
         undo,
+        addFilesFromClipboard,
         generateFileForAI
     );
 }

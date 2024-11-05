@@ -102,6 +102,11 @@
                 "command": "vscode-favorites.undo",
                 "title": "Undo Last Operation",
                 "icon": "$(discard)"
+            },
+            {
+                "command": "vscode-favorites.generateFileForAI",
+                "title": "$(notebook) Generate File for AI",
+                "icon": "$(notebook)"
             }
         ],
         "menus": {
@@ -162,34 +167,24 @@
                     "group": "inline@3"
                 },
                 {
-                    "command": "vscode-favorites.moveToGroup",
-                    "when": "view == favoritesList && viewItem == file",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "vscode-favorites.copyToGroup",
-                    "when": "view == favoritesList && viewItem == file",
-                    "group": "inline@2"
-                },
-                {
-                    "command": "vscode-favorites.removeFromFavorites",
-                    "when": "view == favoritesList && viewItem == file",
-                    "group": "inline@3"
-                },
-                {
-                    "command": "vscode-favorites.moveToGroup",
-                    "when": "view == favoritesList && viewItem == file",
+                    "command": "vscode-favorites.generateFileForAI",
+                    "when": "view == favoritesList && (viewItem == group || viewItem == activeGroup || viewItem == defaultGroup || viewItem == defaultGroupActive || viewItem == file)",
                     "group": "1_modification@1"
                 },
                 {
-                    "command": "vscode-favorites.copyToGroup",
+                    "command": "vscode-favorites.moveToGroup",
                     "when": "view == favoritesList && viewItem == file",
                     "group": "1_modification@2"
                 },
                 {
-                    "command": "vscode-favorites.removeFromFavorites",
+                    "command": "vscode-favorites.copyToGroup",
                     "when": "view == favoritesList && viewItem == file",
                     "group": "1_modification@3"
+                },
+                {
+                    "command": "vscode-favorites.removeFromFavorites",
+                    "when": "view == favoritesList && viewItem == file",
+                    "group": "1_modification@4"
                 }
             ],
             "view/title": [

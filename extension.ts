@@ -140,7 +140,7 @@ interface JsonData {
     activeGroup: string | null;
 }
 
-// 在其他接口定义的地方添加这个接口
+// 其他接口定义的地方添加这个接口
 interface HistorySnapshot {
     type: string;
     data: any;
@@ -398,7 +398,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             arguments: [element],
             title: 'Open File'
         };
-        // 设置文件的 URI，用于文件操作和拖拽
+        // 设置文件的 URI，于文件操作和拖拽
         treeItem.resourceUri = vscode.Uri.file(element.path);
 
         // 根据文件扩展名设置不同的图标
@@ -703,8 +703,8 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
 
     /**
      * 处理拖拽操作
-     * VS Code 的拖拽系统会在拖拽开始时调用此方法
-     * @param {Array} items - 被拖拽的项目数组
+     * VS Code 的拖拽系统会在拖拽开时调用此方法
+     * @param {Array} items - 被拖拽项目数组
      * @param {DataTransfer} dataTransfer - VS Code 提供的数据传输对象
      * @param {CancellationToken} token - 用于检测修饰键（如 Cmd/Ctrl）的状态
      */
@@ -957,7 +957,7 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
             this.groups.set(groupName, {
                 files: new Map(),          // 存储文件
                 subGroups: new Map(),      // 存储子分组
-                parentGroup: parentGroup ? parentGroup.name : null  // 存储父分组引用
+                parentGroup: parentGroup ? parentGroup.name : null  // 存储父组引用
             });
 
             // 如果有父分组，将新分组添加到父分组的 subGroups 中
@@ -1204,6 +1204,10 @@ class FavoritesProvider implements vscode.TreeDataProvider<FavoriteItem> {
         return this.groups.has(groupName);
     }
 
+    // 添加公共方法来获取分组
+    public getGroup(groupName: string): GroupData | undefined {
+        return this.groups.get(groupName);
+    }
 }
 
 /**
@@ -1219,7 +1223,7 @@ export function activate(context: vscode.ExtensionContext) {
      * 建树视图
      * treeDataProvider: 提供树视图数据的对象
      * canSelectMany: 是否允许多选
-     * dragAndDropController: 处理放操作的控制器
+     * dragAndDropController: 处理操作的控制器
      *   - dropMimeTypes: 可以接受的数据类型
      *   - dragMimeTypes: 可以提供的数据类型
      *   - handleDrag/handleDrop: 处拖放的回调函数
@@ -1231,7 +1235,7 @@ export function activate(context: vscode.ExtensionContext) {
             dropMimeTypes: ['application/vnd.code.tree.favoritesList'],
             dragMimeTypes: ['application/vnd.code.tree.favoritesList'],
             handleDrag: (items: readonly FavoriteItem[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) =>
-                favoritesProvider.handleDrag([...items], dataTransfer, token),  // 转换为可变数组
+                favoritesProvider.handleDrag([...items], dataTransfer, token),  // 转换可变数组
             handleDrop: (target: FavoriteItem | undefined, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) =>
                 favoritesProvider.handleDrop(target, dataTransfer, token)  // 移除 || null
         }
@@ -1241,7 +1245,7 @@ export function activate(context: vscode.ExtensionContext) {
     favoritesProvider.setTreeView(treeView);
 
     /**
-     * 注册添加到收藏夹的命令
+     * 注册添加到收夹的命令
      * uri: 单个文件的 URI
      * uris: 多个文件的 URI 数组（多选时）
      * 如果都为空，则使用当前活动编辑器的文件
@@ -1251,7 +1255,7 @@ export function activate(context: vscode.ExtensionContext) {
             // 如果提供了个 URI，添加所有文件
             uris.forEach((uri: vscode.Uri) => favoritesProvider.addFavorite(uri));
         } else if (uri) {
-            // 如果只供了一个 URI，添加单个文件
+            // 如果只供了一个 URI，添加个文件
             favoritesProvider.addFavorite(uri);
         } else {
             // 如果没有提供 URI，使用当前活动编辑器
@@ -1265,7 +1269,7 @@ export function activate(context: vscode.ExtensionContext) {
     /**
      * 注册从收藏夹移除的命令
      * item: 要移除的项目
-     * 如果是从按钮点击，只移除该���
+     * 如果是从按钮击，只移除该
      * 如果是从右键菜单，处理所有选中项
      */
     let removeFromFavorites = vscode.commands.registerCommand('vscode-favorites.removeFromFavorites', async (item) => {
@@ -1287,7 +1291,7 @@ export function activate(context: vscode.ExtensionContext) {
     /**
      * 注册打开收藏文件的命令
      * 支持三种方式：
-     * 1. openFavoriteFiles: 打开所有选中的文件
+     * 1. openFavoriteFiles: 打开所有选的文件
      * 2. openSelectedFiles: 打开选中的文件（别名）
      * 3. openFavoriteFile: 打开单个文件
      */
@@ -1398,9 +1402,9 @@ export function activate(context: vscode.ExtensionContext) {
         await favoritesProvider.deleteGroup(groupElement);
     });
 
-    // 注册添加新分组的令
+    // 注册添加分组的命令
     let addNewGroup = vscode.commands.registerCommand('vscode-favorites.addNewGroup', async () => {
-        // 从右上角按钮调用，传入 undefined 不是 null
+        // 从右上角��钮调用，传入 undefined 不是 null
         await favoritesProvider.addNewGroup(undefined);
     });
 
@@ -1471,6 +1475,81 @@ export function activate(context: vscode.ExtensionContext) {
         await favoritesProvider.undo();
     });
 
+    // 在其他命令注册之后，undo 命令之前添加
+    let generateFileForAI = vscode.commands.registerCommand('vscode-favorites.generateFileForAI', async (item: FavoriteItem) => {
+        try {
+            let groupName: string;
+            let filePaths: string[] = [];
+
+            if (item.isGroup) {
+                // 如果是分组，收集分组中的所有文件
+                groupName = item.name;
+                const group = favoritesProvider.getGroup(groupName);
+                if (!group) return;
+                filePaths = Array.from(group.files.keys());
+            } else {
+                // 如果是文件，收集所有选中的文件
+                groupName = item.groupName || 'default';
+                const selectedItems = item ? 
+                    [item, ...treeView.selection.filter(i => i !== item)] : 
+                    treeView.selection;
+                filePaths = selectedItems.map(item => item.path);
+            }
+
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) {
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
+            }
+
+            // 生成时间戳
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+
+            // 生成文件名
+            const fileName = `ai.${groupName}.${timestamp}.txt`;
+            const filePath = vscode.Uri.joinPath(workspaceFolder.uri, fileName);
+
+            // 收集并处理所有文件内容
+            const fileContents = await Promise.all(
+                filePaths.map(async (filePath) => {
+                    try {
+                        const content = await fs.promises.readFile(filePath, 'utf8');
+                        return `<file path="${filePath}">
+<![CDATA[
+${content}
+]]>
+</file>`;
+                    } catch (error) {
+                        console.error(`Error reading file ${filePath}:`, error);
+                        return `<file path="${filePath}">
+<![CDATA[
+Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}
+]]>
+</file>`;
+                    }
+                })
+            );
+
+            // 将所有内容合并，用两个空行分隔
+            const finalContent = fileContents.join('\n\n\n');
+
+            // 写入文件
+            await fs.promises.writeFile(filePath.fsPath, finalContent, 'utf8');
+
+            // 在编辑器中打开生成的文件
+            const doc = await vscode.workspace.openTextDocument(filePath);
+            await vscode.window.showTextDocument(doc);
+
+            vscode.window.showInformationMessage(`Generated AI file: ${fileName}`);
+
+        } catch (error) {
+            if (error instanceof Error) {
+                vscode.window.showErrorMessage(`Failed to generate AI file: ${error.message}`);
+            }
+        }
+    });
+
     /**
      * 将所有注册的命令和视图添加到订阅列表
      * 这样在扩展停用时，VS Code 会自动清理这些资源
@@ -1494,7 +1573,8 @@ export function activate(context: vscode.ExtensionContext) {
         setActiveGroup,
         deactivateGroup,
         openDataFile,
-        undo
+        undo,
+        generateFileForAI
     );
 }
 
